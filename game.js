@@ -276,14 +276,16 @@ const reactorStats = [
 ];
 const skybridge=new Image();
 skybridge.src='assets/storm-skybridge.webp';
-const mantisFrame=sprites.length;
-const mantis=new Image();
-mantis.src='assets/storm-mantis.webp';
-sprites.push(mantis);
+const stormFrame=sprites.length;
+for (const name of ['porcelain-crawler','knell-hound','hollow-warden']) {
+  const monster=new Image();
+  monster.src='assets/'+name+'.webp';
+  sprites.push(monster);
+}
 const stages={
   1:{seconds:60,summons:1,stats:enemyStats,boss:'熔岩石魔王',victory:'霓虹街守住喇！',objective:'守住防線，60 秒內擊倒熔岩石魔王'},
   2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'90 秒內擊倒熔爐巨龜同冰核巨猿'},
-  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'雷刃螳螂',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，避開王招，再瞄準露出嘅核心反擊'}
+  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，聽到喪鐘就避開王招，再瞄準外露核心反擊'}
 };
 function refreshStageMenu() {
   const level=stages[stagePick.value];
@@ -674,7 +676,7 @@ function stepBossAttack(boss,dt) {
     const duration = game.stage===3 ? 1.15 : lane ? 1.65 : 1.85;
     const originY = boss.y+22;
     const angle = Math.atan2(hero.x-boss.x,hero.y-12-originY);
-    battleAudio.play('warning',.62,.35);
+    battleAudio.play(game.stage===3 ? 'warden-toll' : 'warning',.62,.35);
     boss.hazard = {lane,points,y:hero.y-12,originY,angle,
       length:(breachLine-originY)/Math.cos(angle),duration,windup:duration,flare:.34};
   }
@@ -1097,6 +1099,28 @@ function drawHazard(h,boss) {
   }
   ctx.restore();
 }
+function drawStormMonster(enemy,size,time) {
+  ctx.save();
+  ctx.translate(enemy.x,enemy.y);
+  const beat=reducedMotion ? 0 : Math.sin(time*[7,10,2][enemy.type]+enemy.phase);
+  if (enemy.type===0) {
+    ctx.rotate(beat*.033);
+    ctx.scale(1+beat*.025,1-beat*.045);
+  } else if (enemy.type===1) {
+    const dashing=enemy.dashTime>.65 && enemy.dashTime<1.2;
+    if (dashing) ctx.rotate(clamp((enemy.dashTo-enemy.dashFrom)/320,-.28,.28));
+    ctx.translate(0,Math.abs(beat)*-2);
+  } else {
+    ctx.rotate(beat*.018);
+  }
+  const rim=['#ffc75c48','#ff554f65','#b78af152'][enemy.type];
+  glow(0,0,size*.58,rim);
+  art(stormFrame+enemy.type,0,0,size*(enemy.type===2 ? 1.1 : 1.2),1,enemy.flash>0);
+  if (enemy.type===2 && enemy.exposed>0) {
+    glow(0,-size*.07,size*.2,'#61ffe5bb');
+  }
+  ctx.restore();
+}
 function drawBossCharge(boss) {
   const h=boss.hazard;
   if (!h || h.windup<=0) return;
@@ -1254,8 +1278,12 @@ function draw() {
     }
     shadow(enemy.x,enemy.y+size*.35,size*.33);
     const lunging = enemy.strike > 0 || (enemy.y > hero.y-108 && Math.abs(enemy.x-hero.x)<65);
-    const frame = game.stage===3 && enemy.type===2 ? mantisFrame : game.stage>=2 ? reactorFrame+enemy.type+(enemy.variant||0) : pose(enemy.type+3,lunging,enemy.flash>0);
-    art(frame,enemy.x,enemy.y+Math.sin(time*12+enemy.phase)*2,size,1,enemy.flash>0);
+    if (game.stage===3) {
+      drawStormMonster(enemy,size,time);
+    } else {
+      const frame=game.stage===2 ? reactorFrame+enemy.type+(enemy.variant||0) : pose(enemy.type+3,lunging,enemy.flash>0);
+      art(frame,enemy.x,enemy.y+Math.sin(time*12+enemy.phase)*2,size,1,enemy.flash>0);
+    }
     if (enemy.type===2) drawBossCharge(enemy);
   }
   for (const boss of game.bosses) {

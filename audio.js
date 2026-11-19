@@ -1,5 +1,5 @@
 const battleAudio = (() => {
-  const names = ['actions','shot-0','shot-1','shot-2','charge','hit','coin','warning'];
+  const names = ['actions','shot-0','shot-1','shot-2','charge','hit','coin','warning','warden-toll'];
   for (let actor=0;actor<3;actor++) {
     names.push('shot-'+actor+'-up','ult-'+actor,'voice-'+actor);
   }
@@ -162,7 +162,7 @@ const battleAudio = (() => {
       source.stop(now+.12);
     } else if (segment) source.start(0,segment[0],segment[1]);
     else source.start();
-    if (name==='warning') duck(.48);
+    if (name==='warning' || name==='warden-toll') duck(.48);
     return source;
   }
   function setMuted(value) {
