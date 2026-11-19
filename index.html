@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="zh-Hant-HK"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#10151d"><title>怪獸突襲</title>
+<style>
+*{box-sizing:border-box}body{margin:0;background:#090b16;color:#ededff;font:700 14px system-ui,sans-serif}main{width:min(100%,480px);margin:auto;padding:8px 10px 12px}header{display:flex;justify-content:space-between;align-items:center;margin:0 2px 7px}h1{font-size:clamp(20px,4vw,27px);letter-spacing:.08em;margin:0}header span{color:#84ecff;font-size:11px;letter-spacing:.15em}.frame{position:relative;isolation:isolate;overflow:hidden;border:1px solid #416e91;border-radius:15px;background:#0b1424;box-shadow:0 0 28px #2a82ff2c}canvas{width:100%;height:auto;display:block;aspect-ratio:420/680;touch-action:none}.hud{position:absolute;inset:8px 8px auto;display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;pointer-events:none}.hud>div{background:#0b1728ee;border:1px solid #54768e;border-radius:6px;padding:5px 6px;text-align:center;font-size:11px;font-variant-numeric:tabular-nums}.hud meter{width:100%;height:9px;display:block;accent-color:#61e7ff}.hud meter::-webkit-meter-optimum-value{background:#61e7ff}.hud span{color:#b6cfe0}.boss{position:absolute;inset:57px 20% auto;text-align:center;color:#ffb57d;font-size:10px;pointer-events:none}.boss progress{display:block;width:100%;height:7px;accent-color:#ff794e}.controls{position:absolute;bottom:10px;inset-inline:13px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.stick,.skill{width:65px;height:65px;border-radius:50%;pointer-events:auto;touch-action:none}.stick{position:relative;background:#17354bbb;border:2px solid #7dc9e6aa}.stick i{position:absolute;inset:14px;border-radius:50%;background:#85d4e9;border:2px solid #d9f9ff;pointer-events:none}.skill{background:#27193e;border:2px solid #f4aefe;color:#ffe1ff;box-shadow:0 0 15px #fa62f85c}.skill[aria-disabled=true]{opacity:.6}.panel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#080d21df;padding:12px;gap:16px}.panel h2,.panel p{margin:0;text-align:center}.panel h2{font-size:clamp(20px,5vw,29px)}.choices{display:flex;gap:6px;width:100%}button{font:inherit;cursor:pointer;color:inherit;border-radius:9px;border:1px solid #60788c;background:#202d3d;padding:6px}button:focus-visible{outline:3px solid white;outline-offset:2px}.choice{flex:1;min-width:0;display:grid;justify-items:center;gap:3px;font-size:clamp(11px,3vw,14px)}.choice[aria-pressed=true]{background:#343157;border-color:#8aefff}.choice img{width:100%;height:clamp(56px,18vw,100px);object-fit:contain}.choice small{color:#c2d5e9;font-size:.8em}.primary{background:#8aefff;color:#112031;border-color:#8aefff;padding:8px 21px}.help{color:#aabecc;font-size:11px;text-align:center;margin:8px 0 0}.result{color:#9dedff}[hidden]{display:none!important}
+.hud{position:static;display:grid;grid-template-columns:clamp(56px,16vw,76px) minmax(0,1fr) auto auto;align-items:center;gap:9px;margin-bottom:6px;border:1px solid #416e91;border-radius:12px;background:#101d30;overflow:hidden;padding-right:10px}
+.hud>img{width:100%;aspect-ratio:1;object-fit:cover;background:linear-gradient(145deg,#48405a,#162139)}
+.hud>div{display:grid;gap:3px;padding:0;border:0;background:none;text-align:right}
+.hud>.vitals{text-align:left}.vitals strong{font-size:15px}.hud meter{height:11px}.boss{top:8px}
+.aim-pad{border-color:#f6ac65;background:#573728bb}.aim-pad i{background:#ffbd76;border-color:#ffe5bc}.controls .skill{width:50px;height:50px;font-size:12px;margin-left:auto;margin-right:14px}.stick::after{position:absolute;inset:auto 0 4px;text-align:center;font-size:9px;pointer-events:none;color:#fff}.stick::after{content:"移動"}.aim-pad::after{content:"射擊"}canvas{cursor:crosshair}
+
+body{background:radial-gradient(ellipse at 50% 30%,#192538,#080a13 68%)}
+main{width:min(100%,480px,calc((100svh - 90px)*.563 + 20px))}
+canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
+.hud{position:absolute;inset:7px 7px auto;margin:0;grid-template-columns:clamp(36px,10vw,49px) 1fr auto auto;gap:10px;background:#081425ed;border-color:#448898}
+.hud>.vitals{grid-template-columns:1fr auto;align-items:center}.vitals meter{grid-column:1/-1}.vitals strong{font-size:12px}.boss{top:62px;background:#190d1ad9;border-radius:4px}
+.panel{background:linear-gradient(#080d2270,#091424aa 40%,#081020f2);gap:clamp(7px,1.6vh,15px)}.panel h2{text-shadow:0 2px 10px #04060a}.panel #showcase{height:33%;max-width:70%;object-fit:contain;filter:drop-shadow(0 8px 9px #060914)}
+.choice{background:#111e2fe8}.choice img{height:clamp(32px,8vh,72px)}.primary{min-width:50%;box-shadow:0 0 18px #69d6fc44}
+.controls{bottom:3%}.help{line-height:1.45}
+@media(max-width:380px){.hud{gap:5px}.vitals strong{font-size:10px}}
+.hud{grid-template-columns:clamp(36px,10vw,49px) minmax(0,1fr) auto auto auto}
+.pause-btn{width:36px;height:36px;padding:0;display:grid;place-items:center;pointer-events:auto;background:#193547;border-color:#5890a3}
+.pause-btn::before{content:"";width:4px;height:13px;border-inline:3px solid #d8faff}
+.combo{position:absolute;inset:65px auto auto 10px;pointer-events:none;color:#fff4cb;background:#38271def;border:1px solid #ae784c;border-radius:6px;padding:4px 8px;font-size:12px}
+.panel .objective{color:#dcf2fa;font-size:clamp(12px,2.8vw,14px);line-height:1.4}
+#pausePanel{background:#081222e8;z-index:2}
+@media(pointer:coarse){.pause-btn{width:44px;height:44px}}
+.charge-control{margin-left:auto;margin-right:14px;display:grid;justify-items:center;position:relative}.controls .charge-control .skill{margin:0;user-select:none;-webkit-touch-callout:none}.charge-control progress{position:absolute;bottom:calc(100% + 5px);width:62px;height:9px;accent-color:#ffcd66}.skill.full{background:#694521;border-color:#ffdc89;color:white;box-shadow:0 0 16px #ffc063}
+.loot-controls{position:absolute;left:10px;bottom:15%;display:flex;align-items:center;gap:6px;background:#091829ed;border:1px solid #577480;border-radius:9px;padding:3px 5px;color:#ffe295}.loot-controls button{font-size:12px;min-height:36px}.loot-controls button:enabled{background:#ffd779;color:#211a15}.loot-controls button:disabled{color:#c2cad5}.loot-controls output{font-variant-numeric:tabular-nums;font-size:13px}
+
+.title-screen{width:min(100%,56.25svh);height:100svh;margin:auto;position:relative;overflow:hidden;isolation:isolate;container-type:inline-size;background:#101126 url(assets/title-golem.webp) center/cover no-repeat}
+.title-screen::after{content:"";position:absolute;inset:65% 0 0;background:linear-gradient(transparent,#040712ec);z-index:-1}
+.title-logo{position:absolute;inset:2.5% 0 auto;text-align:center;transform:skew(-8deg) rotate(-3deg);color:#fff1b2;font-size:18cqw;font-weight:1000;letter-spacing:-.08em;line-height:.98;text-shadow:2px 3px #f85124,4px 6px #841431,6px 8px #071124}
+.title-logo small{display:block;margin-top:.45em;font:900 3.5cqw/1 system-ui;letter-spacing:.29em;color:#baf8ff;text-shadow:1px 2px #152844}
+.title-hero{position:absolute;object-fit:contain;object-position:center bottom;--shadow:drop-shadow(0 2px 1px #fee1a0) drop-shadow(0 6px 6px #100d21);filter:var(--shadow);animation:title-entry 1.65s ease-in-out backwards}
+.title-gold{width:60%;height:40%;left:18%;bottom:13%;z-index:2;--dx:0%;--glow:#ffd76c;animation-delay:.55s}
+.title-blue{width:45%;height:32%;left:-1%;bottom:18%;--dx:-22%;--glow:#72edff;animation-delay:2.85s}
+.title-violet{width:46%;height:34%;right:-1%;bottom:18%;--dx:22%;--glow:#dba0ff;animation-delay:5.15s}
+@keyframes title-entry{
+  0%{opacity:0;transform:translate(var(--dx),9%) scale(.95);filter:var(--shadow) brightness(2)}
+  30%{opacity:.68;filter:var(--shadow) brightness(1.85) drop-shadow(0 0 9px var(--glow))}
+  72%{opacity:.96;filter:var(--shadow) brightness(1.12) drop-shadow(0 0 3px var(--glow))}
+  100%{opacity:1;transform:none;filter:var(--shadow)}
+}
+.title-start{position:absolute;z-index:3;bottom:max(3.5%,env(safe-area-inset-bottom));left:50%;transform:translateX(-50%) skew(-6deg);min-width:59%;min-height:44px;border:2px solid #fff2ab;border-radius:2px;background:#ffce4a;color:#24152d;box-shadow:4px 4px #d53826,7px 7px #21132d;font:1000 clamp(15px,5.2cqw,32px)/1 system-ui;letter-spacing:.14em;padding:.55em .7em}
+.title-start:active{background:#fff2b1}
+@media(prefers-reduced-motion:reduce){.title-hero{animation:none}}
+#stagePick{background:#102439;color:#e1f7ff;border:1px solid #6586a3;padding:6px 12px;border-radius:6px;font:inherit}#twinHealth{accent-color:#77dbff}
+.hud.danger{border-color:#ff786b}.hud.danger #life{color:#ff9a88}.hud.danger meter::-webkit-meter-optimum-value{background:#ff775e}
+.summon{pointer-events:auto;touch-action:manipulation;position:relative;margin-left:6px;min-width:49px;height:53px;padding:2px 5px;display:grid;justify-items:center;align-content:center;gap:1px;border-color:#81e2c9;background:#133a3c;color:#d8fff4;font-size:10px;line-height:1.1}
+.summon img{height:28px;width:28px;object-fit:cover;border-radius:50%;background:#28404c}.summon b{position:absolute;right:4px;top:1px;font-size:16px;color:#b9ffcf;text-shadow:0 1px 3px #000}.summon:disabled{opacity:.75}.summon:disabled b{display:none}
+@media(max-width:360px){.controls{inset-inline:6px}.charge-control{margin-right:5px}.summon{margin-left:2px;min-width:44px}}
+.sound-toggle{margin-left:auto;margin-right:4px;min-height:32px;padding:4px 9px;background:#142839;color:#bceefa;font-size:13px}.music-toggle{margin-left:0}.voice-credit{color:#aecad6}
+#battleLine{position:absolute;inset:70% auto auto 50%;transform:translateX(-50%);white-space:nowrap;padding:4px 14px;pointer-events:none;background:#081222ed;border-bottom:2px solid var(--speaker);border-radius:4px;color:#fff;font:bold clamp(14px,3.5vw,22px)/1.4 system-ui}
+.title-audio{position:absolute;z-index:4;left:0;right:0;bottom:calc(max(3.5%,env(safe-area-inset-bottom)) + max(62px,12cqw));display:grid;justify-items:center;gap:5px;pointer-events:none}.title-audio button{pointer-events:auto;min-height:44px;padding:8px 17px;background:#101e32f5;border:1px solid #94edff;border-radius:22px;color:#d9fbff;font-weight:800}.title-audio output:not(:empty),.audio-message:not(:empty){display:block;background:#091626f5;color:#dbfaff;padding:4px 8px;font-size:13px;text-align:center;border-radius:6px}.audio-message:empty{display:none}
+</style>
+<section class="title-screen" id="titleScreen" aria-labelledby="titleLogo">
+<h1 class="title-logo" id="titleLogo">怪獸突襲<small lang="en">MONSTER RUSH</small></h1>
+<img class="title-hero title-gold" src="assets/9.png" alt="金光快手">
+<img class="title-hero title-blue" src="assets/22.png" alt="藍盾守衛">
+<img class="title-hero title-violet" src="assets/11.png" alt="水晶掌手">
+<div class="title-audio"><output id="titleAudioStatus" role="status" aria-live="polite"></output><button id="testAudio" type="button">♪ 開聲試聽</button></div>
+<button class="title-start" id="pressStart" type="button" autofocus>PRESS START</button>
+</section>
+<main id="gameScreen" hidden><header><h1>怪獸突襲</h1><button class="sound-toggle" id="soundToggle" type="button" aria-label="遊戲聲音" aria-pressed="true">聲音：開</button><button class="sound-toggle music-toggle" id="musicToggle" type="button" aria-label="背景音樂" aria-pressed="true">音樂：開</button><span><span id="stageHeader">LV1 · 60 秒</span></span></header><output class="audio-message" id="audioStatus" role="status" aria-live="polite"></output>
+<div class="frame"><canvas width="420" height="746" aria-label="霓虹戰場"></canvas>
+<div class="hud" id="hudBar" hidden>
+  <img id="activeFace" alt="">
+  <div class="vitals"><strong id="heroName"></strong><span id="life">HP 100</span><meter id="health" min="0" max="100" value="100"></meter></div>
+  <div><span>分數</span><strong id="score">0000</strong></div>
+  <div><strong id="wave">第 1 波</strong><span id="timer">60s</span></div>
+  <button class="pause-btn" id="pause" type="button" aria-label="暫停遊戲" title="暫停遊戲（P / Esc）" hidden></button>
+</div>
+
+<div class="boss" id="boss" hidden><span id="bossName">熔岩石魔王</span><progress id="bossHealth" max="1150" value="1150"></progress><span id="twinBar" hidden>冰核巨猿<progress id="twinHealth" max="1450"></progress></span></div>
+<output id="battleLine" lang="ja" aria-live="polite" hidden></output>
+<span class="combo" id="combo" hidden></span>
+<div class="loot-controls" id="lootControls" hidden><output id="wallet"></output><button type="button" id="upgrade" title="升級招式（U）"></button></div>
+<div class="controls" id="controls" hidden><div class="stick" id="stick" aria-label="移動搖桿"><i></i></div><button type="button" id="summon" class="summon" title="召喚隨機朋友（F），每局一次"><img id="friendFace" src="assets/face-1.png" alt=""><b aria-hidden="true">+</b><span id="friendLabel">召喚朋友</span></button><div class="charge-control"><progress id="chargeBar" max="100" value="0" aria-label="必殺儲氣"></progress><button class="skill" id="skill">儲氣</button></div><div class="stick aim-pad" id="aimPad" aria-label="拖向射擊方向"><i></i></div></div>
+<section class="panel" id="menu"><h2 id="heading">揀一位主角</h2><select id="stagePick" aria-label="選擇關卡"><option value="1">LV1　霓虹街</option><option value="2">LV2　潮汐能源站</option></select><label><input id="loadout" type="checkbox"> 練習：帶入已解鎖武器</label><p class="objective" id="objective">守住防線，60 秒內擊倒熔岩石魔王</p><img id="showcase" src="assets/portrait-0.png" alt=""><p class="result" id="result" hidden></p><div class="choices">
+<button class="choice" aria-pressed="true"><img src="assets/face-0.png" alt=""><span>金光快手</span><small>快速連發</small></button>
+<button class="choice" aria-pressed="false"><img src="assets/face-1.png" alt=""><span>藍盾守衛</span><small>護盾反擊</small></button>
+<button class="choice" aria-pressed="false"><img src="assets/face-2.png" alt=""><span>水晶掌手</span><small>扇形重擊</small></button>
+</div><button class="primary" id="start" disabled>載入中</button></section>
+<section class="panel" id="pausePanel" aria-labelledby="pauseTitle" hidden><h2 id="pauseTitle">遊戲暫停</h2><button class="primary" id="resume" type="button">繼續打怪</button></section></div>
+<p class="help">撳朋友頭像或 F 召喚隊友，每局一次，支援 10 秒<br>紫線預告衝鋒 · 避開王招，趁核心外露放必殺<br>執幣後按「升級」或 U 強化武器<br>左桿移動 · 右桿拖向目標開火，放手停火<br>電腦用 WASD／方向鍵移動，滑鼠左鍵或 IJKL 開火，長按空白鍵或必殺掣儲氣，滿格放手出招 · <a class="voice-credit" href="assets/sound/credits.txt" target="_blank" rel="noopener">語音來源</a></p>
+</main><script src="audio.js?v=sound-check-1"></script><script src="game.js?v=ultimate-impact"></script></html>

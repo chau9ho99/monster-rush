@@ -1,0 +1,4 @@
+Japanese battle calls were synthesized with Open JTalk and the Nitech Japanese male voice (nitech_jp_atr503_m001), with custom lines, pitch, pace and effects.
+Voice model © 2003–2012 Nagoya Institute of Technology, Department of Computer Science, and © 2003–2008 Tokyo Institute of Technology, Interdisciplinary Graduate School of Science and Engineering.
+Model source: https://open-jtalk.sourceforge.net/
+License: Creative Commons Attribution 3.0 (https://creativecommons.org/licenses/by/3.0/).
