@@ -274,10 +274,21 @@ const reactorStats = [
   {...enemyStats[1],hp:62,speed:114,hit:16,value:210},
   {...enemyStats[2],hp:1450,speed:24,size:152,hit:28,value:1800}
 ];
+const skybridge=new Image();
+skybridge.src='assets/storm-skybridge.webp';
+const mantisFrame=sprites.length;
+const mantis=new Image();
+mantis.src='assets/storm-mantis.webp';
+sprites.push(mantis);
+const stages={
+  1:{seconds:60,summons:1,stats:enemyStats,boss:'熔岩石魔王',victory:'霓虹街守住喇！',objective:'守住防線，60 秒內擊倒熔岩石魔王'},
+  2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'90 秒內擊倒熔爐巨龜同冰核巨猿'},
+  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'雷刃螳螂',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，避開王招，再瞄準露出嘅核心反擊'}
+};
 function refreshStageMenu() {
-  const second = stagePick.value==='2';
-  document.getElementById('objective').textContent = second ? '90 秒內擊倒熔爐巨龜同冰核巨猿' : '守住防線，60 秒內擊倒熔岩石魔王';
-  document.getElementById('stageHeader').textContent = second ? 'LV2 · 90 秒' : 'LV1 · 60 秒';
+  const level=stages[stagePick.value];
+  document.getElementById('objective').textContent=level.objective;
+  document.getElementById('stageHeader').textContent='LV'+stagePick.value+' · '+level.seconds+' 秒';
 }
 stagePick.onchange = () => {
   battleAudio.play('select',.48);
@@ -286,8 +297,7 @@ stagePick.onchange = () => {
 };
 const battleLine=document.getElementById('battleLine');
 const japaneseLines=['光よ、貫け！','俺が守る！','砕け散れ！'];
-function battleCry(actor,ally=false) {
-  if (ally && game.lineTime>0) return;
+function battleCry(actor) {
   battleAudio.callout(actor);
   game.lineTime=1.65;
   battleLine.textContent=japaneseLines[actor];
@@ -302,10 +312,12 @@ function start() {
   battleAudio.play('start',.64);
   battleLine.hidden=true;
   resetInput();
+  const stage=Number(stagePick.value)||1;
+  const level=stages[stage];
   game = {
-    weaponLevel:loadout.checked ? progress.levels[selected] : 0, cleanDodge:false, stage:Number(stagePick.value), stats:stagePick.value==="2" ? reactorStats : enemyStats, bosses:[], running:true, paused:false, time:0, score:0, wave:1, spawn:2.25, formation:0,
+    weaponLevel:loadout.checked ? progress.levels[selected] : 0, cleanDodge:false, stage, stats:level.stats, bosses:[], running:true, paused:false, time:0, score:0, wave:1, spawn:2.25, formation:0,
     lineTime:0, cutin:0, ultimateResult:null, explosion:0, coins:[], balance:0, earned:0, lootTime:0, chain:0, chainTime:0, bestChain:0, breachFlash:0,
-    scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonUsed:false, bullets:[], enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
+    scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonsLeft:level.summons, allyCutin:false, queuedUltimate:false, gate:null, gateIndex:0, nextGate:5, bullets:[], enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
     hero:{actor:selected,x:width/2,y:552,hp:100,attack:0,skill:0,guard:0,hurt:0,face:1,moving:false,stride:0,footDistance:0,aim:0}
   };
   friendFace.src=choices[(selected+1)%choices.length].querySelector('img').src;
@@ -323,8 +335,8 @@ function start() {
 ui.start.onclick = start;
 function hud() {
   const {hero,wave,time,score,bosses} = game;
-  summonButton.disabled=game.summonUsed || game.won || !!game.ending;
-  const label=game.friend ? '支援 '+Math.ceil(supportDuration-game.friend.age)+'s' : game.summonUsed ? '已召喚' : '召喚朋友';
+  summonButton.disabled=!!game.friend || !game.summonsLeft || game.won || !!game.ending;
+  const label=game.friend ? '支援 '+Math.ceil(supportDuration-game.friend.age)+'s' : game.summonsLeft ? '召喚 ×'+game.summonsLeft : '已用完';
   if (friendLabel.textContent!==label) friendLabel.textContent=label;
   const level = game.weaponLevel;
   const cost = upgradeCosts[level];
@@ -335,7 +347,7 @@ function hud() {
   upgradeButton.disabled = !cost || !!gate || game.balance<cost || !!game.ending;
   upgradeButton.textContent = 'Lv.'+(level+1)+(cost ? ' · '+cost+'幣'+(gate ? ' · '+gate : ' 升級') : ' 已滿級');
   ui.wave.textContent = game.won ? '執戰利品' : '第 ' + wave + ' 波';
-  ui.timer.textContent = Math.ceil(Math.max(0,game.won ? game.lootTime : (game.stage===2 ? 90 : 60)-time)) + 's';
+  ui.timer.textContent = Math.ceil(Math.max(0,game.won ? game.lootTime : stages[game.stage].seconds-time)) + 's';
   ui.score.textContent = String(score).padStart(4,'0');
   ui.combo.hidden = game.chain < 2;
   ui.combo.textContent = game.chain + ' 連殺';
@@ -346,7 +358,7 @@ function hud() {
   if (bosses.length) {
     ui.bossHealth.max = game.stats[2].hp;
     ui.bossHealth.value = Math.max(0,bosses[0].hp);
-    document.getElementById('bossName').textContent = game.stage===2 ? '熔爐巨龜' : '熔岩石魔王';
+    document.getElementById('bossName').textContent = stages[game.stage].boss;
     document.getElementById('twinBar').hidden = bosses.length<2;
     if (bosses[1]) document.getElementById('twinHealth').value = Math.max(0,bosses[1].hp);
   }
@@ -368,13 +380,13 @@ function finish(won) {
   ui.pause.hidden = true;
   ui.boss.hidden = true;
   ui.combo.hidden = true;
-  ui.heading.textContent = won ? (game.stage===2 ? '能源站奪回喇！' : '霓虹街守住喇！') : game.hero.hp <= 0 ? '你死撚左了！' : '時間到！';
+  ui.heading.textContent = won ? stages[game.stage].victory : game.hero.hp <= 0 ? '你死撚左了！' : '時間到！';
   ui.result.textContent = '得分 ' + game.score + ' · 最高連殺 ' + game.bestChain + ' · 拾獲 ' + game.earned + ' 幣';
   ui.result.hidden = false;
-  if (won && game.stage===1) {
-    stagePick.value='2';
+  if (won && game.stage<3) {
+    stagePick.value=String(game.stage+1);
     refreshStageMenu();
-    ui.start.textContent = '進入 LV2';
+    ui.start.textContent = '進入 LV'+stagePick.value;
   } else ui.start.textContent = '再玩一局';
   ui.hudBar.hidden = true;
   ui.menu.hidden = false;
@@ -488,13 +500,13 @@ function hit(enemy,damage,special=false) {
   burst(enemy.x,enemy.y,game.stats[enemy.type].color,enemy.hp<=0?16:5);
 }
 function summonFriend() {
-  if (!game?.running || game.paused || game.ending || game.won || game.summonUsed) return;
+  if (!game?.running || game.paused || game.ending || game.won || game.friend || !game.summonsLeft) return;
   const actor=(selected+1+Math.floor(Math.random()*2))%choices.length;
   const side=game.hero.x>width/2 ? -1 : 1;
   const x=clamp(game.hero.x+side*94,42,width-42);
   const y=game.hero.y-58;
   game.friend={actor,x,y,side,age:0,reload:0,beam:0,finisher:false,targets:[]};
-  game.summonUsed=true;
+  game.summonsLeft--;
   battleAudio.play('summon',.62);
   friendFace.src=choices[actor].querySelector('img').src;
   impact(x,y,56,stats[actor].color,.38);
@@ -525,13 +537,9 @@ function stepFriend(dt) {
   const enemies=game.enemies.filter(e=>e.hp>0 && !e.escaped && e.y>=0 && e.y<=breachLine);
   if (finalStrike) {
     f.finisher=true;
-    battleCry(f.actor,true);
-    battleAudio.blast(f.actor);
-    f.beam=.72;
-    f.targets=enemies.map(e=>({x:e.x,y:e.y}));
-    impact(f.x,f.y,115,stats[f.actor].color,.65);
-    game.shake=Math.max(game.shake,2);
-    for (const e of enemies) hit(e,105,true);
+    game.allyCutin=true;
+    game.cutin=cutinDuration;
+    battleCry(f.actor);
   } else {
     f.reload=.42;
     if (!enemies.length) return;
@@ -541,6 +549,18 @@ function stepFriend(dt) {
     battleAudio.play('shot-'+f.actor,.34);
     hit(target,22);
   }
+}
+
+function unleashFriend() {
+  const f=game.friend;
+  const enemies=game.enemies.filter(e=>e.hp>0 && !e.escaped && e.y>=0 && e.y<=breachLine);
+  battleAudio.blast(f.actor);
+  f.beam=.72;
+  f.targets=enemies.map(e=>({x:e.x,y:e.y}));
+  impact(f.x,f.y,115,stats[f.actor].color,.65);
+  game.shake=Math.max(game.shake,2);
+  for (const e of enemies) hit(e,105,true);
+  game.explosion=.62;
 }
 
 function drawFriend(f) {
@@ -567,6 +587,7 @@ function drawFriend(f) {
 }
 function ultimate() {
   if (!game?.running || game.paused || game.won || game.hero.skill > 0 || game.ending>0) return;
+  if (game.allyCutin) { game.queuedUltimate=true; return; }
   game.cutin = cutinDuration;
   battleCry(game.hero.actor);
   game.hero.skill = 7;
@@ -598,6 +619,50 @@ function unleash() {
   burst(hero.x,hero.y-27,stats[selected].color,20);
   hud();
 }
+// The gate travels through the playable strip. Collision uses the same opening as the artwork.
+function stepStormGate(dt) {
+  if (!game.gate) {
+    if (game.wave===3 || game.time<game.nextGate) return;
+    const gaps=[109,302,175,286,94,227];
+    game.gate={x:gaps[game.gateIndex++ % gaps.length],y:325,warning:1.15,hit:false,
+      half:game.wave===1 ? 53 : 44,speed:game.wave===1 ? 150 : 190};
+    battleAudio.play('warning',.45);
+  }
+  const gate=game.gate;
+  if (gate.warning>0) { gate.warning-=dt; return; }
+  gate.y+=gate.speed*dt;
+  const hero=game.hero;
+  if (!gate.hit && Math.abs(hero.y-12-gate.y)<13 && Math.abs(hero.x-gate.x)+9>gate.half) {
+    gate.hit=true;
+    if (!hero.hurt && !hero.guard) {
+      hero.hp-=15;
+      hero.hurt=.65;
+      battleAudio.play('hurt',.7);
+      burst(hero.x,hero.y-12,'#ffab56',12);
+    } else if (hero.guard) battleAudio.play('block',.6);
+  }
+  if (gate.y>breachLine+20) { game.gate=null; game.nextGate=game.time+1.8; }
+}
+function drawStormGate(gate) {
+  const left=gate.x-gate.half,right=gate.x+gate.half,y=gate.y;
+  ctx.save();
+  ctx.fillStyle='#53f3c417';
+  ctx.fillRect(left,y,right-left,breachLine-y>0 ? breachLine-y : 0);
+  ctx.setLineDash([5,6]);
+  line(left,y,left,breachLine,'#73ffe18a',1);
+  line(right,y,right,breachLine,'#73ffe18a',1);
+  ctx.setLineDash([]);
+  for (const [a,b] of [[0,left],[right,width]]) {
+    line(a,y,b,y,gate.warning>0 ? '#ffb54988' : '#d246ff99',gate.warning>0 ? 3 : 11);
+    ctx.beginPath();ctx.moveTo(a,y);
+    for (let x=a+6;x<b;x+=6) ctx.lineTo(x,y+3*Math.sin(x*.67+(reducedMotion ? 0 : game.time*20)));
+    ctx.lineTo(b,y);ctx.lineWidth=2;ctx.strokeStyle=gate.warning>0 ? '#ffc772' : '#fff1ff';ctx.stroke();
+  }
+  ctx.font='bold 14px system-ui';ctx.textAlign='center';
+  ctx.fillStyle='#071c28';ctx.fillRect(gate.x-33,y-19,66,20);
+  ctx.fillStyle='#9fffe4';ctx.fillText('安全缺口',gate.x,y-4);
+  ctx.restore();
+}
 function stepBossAttack(boss,dt) {
   if (!boss || boss.hp<=0 || boss.y<bossStationY) return;
   const hero = game.hero;
@@ -606,7 +671,7 @@ function stepBossAttack(boss,dt) {
     if (boss.delay>0) return;
     const lane = game.stage===2 ? boss.variant===0 : boss.turn++ % 2 === 0;
     const points = lane ? [hero.x] : [hero.x,clamp(hero.x+(hero.x<width/2 ? 108 : -108),42,width-42)];
-    const duration = lane ? 1.65 : 1.85;
+    const duration = game.stage===3 ? 1.15 : lane ? 1.65 : 1.85;
     const originY = boss.y+22;
     const angle = Math.atan2(hero.x-boss.x,hero.y-12-originY);
     battleAudio.play('warning',.62,.35);
@@ -630,7 +695,7 @@ function stepBossAttack(boss,dt) {
       game.cleanDodge=true;
       battleAudio.play('dodge',.53,.15);
     } else if (hero.guard>0) battleAudio.play('block',.64,.12);
-    boss.exposed = 1.6;
+    boss.exposed = game.stage===3 ? (caught ? 0 : 2.15) : 1.6;
     if (caught && hero.guard<=0 && hero.hurt<=0) {
       battleAudio.play('hurt',.75,.12);
       hero.hp -= hazard.lane ? 22 : 18;
@@ -651,7 +716,13 @@ function step(dt) {
   }
   if (game.cutin>0) {
     game.cutin = Math.max(0,game.cutin-dt);
-    if (game.cutin===0) unleash();
+    if (game.cutin===0) {
+      if (game.allyCutin) {
+        game.allyCutin=false;
+        unleashFriend();
+        if (game.queuedUltimate) { game.queuedUltimate=false; ultimate(); }
+      } else unleash();
+    }
     return;
   }
   if (game.ultimateResult) {
@@ -717,6 +788,8 @@ function step(dt) {
     return;
   }
   stepFriend(dt);
+  if (game.allyCutin) return;
+  if (game.stage===3) stepStormGate(dt);
   const firing = aimWeapon(hero);
   if (firing && hero.attack === 0) {
     hero.attack = weapon.delay;
@@ -745,6 +818,10 @@ function step(dt) {
     enemy.strike = Math.max(0,enemy.strike-dt);
     if (enemy.type===2) {
       enemy.y=Math.min(bossStationY,enemy.y+94*dt);
+      if (game.stage===3 && enemy.y===bossStationY && !enemy.hazard && !enemy.exposed) {
+        enemy.patrol=(enemy.patrol||0)+dt;
+        enemy.x=enemy.track+105*Math.sin(enemy.patrol*1.7);
+      }
     } else {
       enemy.y+=config.speed*dt;
       enemy.x=enemy.track+Math.sin(game.time*(enemy.type===1?4:2)+enemy.phase)*(enemy.type===1?25:12);
@@ -805,8 +882,9 @@ function step(dt) {
   for (const cast of game.casts) cast.life -= dt;
   game.casts = game.casts.filter(cast=>cast.life>0);
   const won = game.bosses.length>0 && game.bosses.every(b=>b.hp<=0);
-  if (won || hero.hp<=0 || game.time>=(game.stage===2 ? 90 : 60)) {
+  if (won || hero.hp<=0 || game.time>=stages[game.stage].seconds) {
     game.friend=null;
+    game.gate=null;
     game.won = won;
     for (const boss of game.bosses) boss.hazard = null;
     if (won) {
@@ -886,8 +964,9 @@ function updateScenery(dt,dx,dy,distance) {
   scenery.dx=dx;scenery.dy=dy;
 }
 function road() {
-  const second=game ? game.stage===2 : stagePick.value==='2';
-  const backdrop=second ? reactor : street;
+  const stage=game?.running ? game.stage : Number(stagePick.value);
+  const second=stage>=2;
+  const backdrop=stage===3 ? skybridge : second ? reactor : street;
   const camera=game?.scenery;
   const x=camera?.x || 0,y=camera?.y || 0;
   if (backdrop.complete && backdrop.naturalWidth) {
@@ -1042,12 +1121,13 @@ function drawCinematic() {
     const w = width*1.55*zoom, h = w/3;
     ctx.fillStyle='#090b1edc';ctx.fillRect(0,0,width,height);
     const y = height*.43-h/2;
+    const actor=game.allyCutin ? game.friend.actor : game.hero.actor;
     const strip = cutins.naturalHeight/3;
-    ctx.drawImage(cutins,0,strip*selected,cutins.naturalWidth,strip,(width-w)/2,y,w,h);
-    ctx.fillStyle=stats[selected].color;
+    ctx.drawImage(cutins,0,strip*actor,cutins.naturalWidth,strip,(width-w)/2,y,w,h);
+    ctx.fillStyle=stats[actor].color;
     ctx.fillRect(0,y-3,width,3);ctx.fillRect(0,y+h,width,3);
     ctx.textAlign='right';ctx.font='italic 900 29px system-ui';
-    ctx.fillText(['必殺 · 金光連破','必殺 · 蒼藍反擊','必殺 · 水晶震波'][selected],width-18,y+h+39);
+    ctx.fillText((game.allyCutin ? '隊友必殺 · ' : '必殺 · ')+['金光連破','蒼藍反擊','水晶震波'][actor],width-18,y+h+39);
   } else if (game.explosion>0) {
     const age = 1-game.explosion/.62;
     const size = (reducedMotion ? .85 : .55+age*1.9)*height;
@@ -1121,6 +1201,7 @@ function draw() {
   if (!reducedMotion && game.shake>0) ctx.translate(Math.sin(time*97)*game.shake,Math.cos(time*83)*game.shake);
   ctx.lineCap='round';
   drawTracks();
+  if (game.gate) drawStormGate(game.gate);
   for (const boss of game.bosses) if (boss.hp>0 && boss.hazard) drawHazard(boss.hazard,boss);
   const breachWarning = game.enemies.some(enemy => enemy.type !== 2 && enemy.y > breachLine-94);
   ctx.save();
@@ -1173,7 +1254,7 @@ function draw() {
     }
     shadow(enemy.x,enemy.y+size*.35,size*.33);
     const lunging = enemy.strike > 0 || (enemy.y > hero.y-108 && Math.abs(enemy.x-hero.x)<65);
-    const frame = game.stage===2 ? reactorFrame+enemy.type+(enemy.variant||0) : pose(enemy.type+3,lunging,enemy.flash>0);
+    const frame = game.stage===3 && enemy.type===2 ? mantisFrame : game.stage>=2 ? reactorFrame+enemy.type+(enemy.variant||0) : pose(enemy.type+3,lunging,enemy.flash>0);
     art(frame,enemy.x,enemy.y+Math.sin(time*12+enemy.phase)*2,size,1,enemy.flash>0);
     if (enemy.type===2) drawBossCharge(enemy);
   }
@@ -1298,7 +1379,7 @@ function draw() {
     ctx.save();
     ctx.fillStyle='#390e1aea';ctx.fillRect(0,height*.32,width,61);
     ctx.textAlign='center';ctx.fillStyle='#ffd077';ctx.font='bold 21px system-ui';
-    ctx.fillText(game.stage===2 ? '警告 · 雙核守衛接近' : '警告 · 熔岩石魔王接近',width/2,height*.32+26);
+    ctx.fillText('警告 · '+(game.stage===2 ? '雙核守衛' : stages[game.stage].boss)+'接近',width/2,height*.32+26);
     ctx.font='bold 14px system-ui';ctx.fillText('距離入場 '+Math.ceil(33-time)+' 秒',width/2,height*.32+49);
     ctx.restore();
   }
@@ -1317,7 +1398,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-Promise.all([street,reactor,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites].map(sprite=>sprite.decode())).then(()=>{
+Promise.all([street,reactor,skybridge,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites].map(sprite=>sprite.decode())).then(()=>{
   ui.start.disabled = false;
   ui.start.textContent = '開始打怪';
 }).catch(()=>{ui.start.textContent = '素材載入失敗，請重新整理';});
