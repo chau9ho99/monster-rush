@@ -52,6 +52,8 @@ canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
 .sound-toggle{margin-left:auto;margin-right:4px;min-height:32px;padding:4px 9px;background:#142839;color:#bceefa;font-size:13px}.music-toggle{margin-left:0}.voice-credit{color:#aecad6}
 #battleLine{position:absolute;inset:70% auto auto 50%;transform:translateX(-50%);white-space:nowrap;padding:4px 14px;pointer-events:none;background:#081222ed;border-bottom:2px solid var(--speaker);border-radius:4px;color:#fff;font:bold clamp(14px,3.5vw,22px)/1.4 system-ui}
 .title-audio{position:absolute;z-index:4;left:0;right:0;bottom:calc(max(3.5%,env(safe-area-inset-bottom)) + max(62px,12cqw));display:grid;justify-items:center;gap:5px;pointer-events:none}.title-audio button{pointer-events:auto;min-height:44px;padding:8px 17px;background:#101e32f5;border:1px solid #94edff;border-radius:22px;color:#d9fbff;font-weight:800}.title-audio output:not(:empty),.audio-message:not(:empty){display:block;background:#091626f5;color:#dbfaff;padding:4px 8px;font-size:13px;text-align:center;border-radius:6px}.audio-message:empty{display:none}
+.pickup-status{position:absolute;left:50%;top:24%;transform:translateX(-50%);pointer-events:none;display:grid;justify-items:center;gap:4px;white-space:nowrap;font-size:clamp(11px,3cqw,14px);font-weight:800}
+.pickup-status output,.pickup-status span{padding:4px 9px;border-radius:7px;border:1px solid #90b8df;background:#091829f5;color:#e3f9ff;font-variant-numeric:tabular-nums}
 </style>
 <section class="title-screen" id="titleScreen" aria-labelledby="titleLogo">
 <h1 class="title-logo" id="titleLogo">怪獸突襲<small lang="en">MONSTER RUSH</small></h1>
@@ -73,6 +75,7 @@ canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
 
 <div class="boss" id="boss" hidden><span id="bossName">熔岩石魔王</span><progress id="bossHealth" max="1150" value="1150"></progress><span id="twinBar" hidden>冰核巨猿<progress id="twinHealth" max="1450"></progress></span></div>
 <output id="battleLine" lang="ja" aria-live="polite" hidden></output>
+<div class="pickup-status"><output id="pickupStatus" role="status" hidden></output><span id="specialStatus" hidden></span></div>
 <span class="combo" id="combo" hidden></span>
 <div class="loot-controls" id="lootControls" hidden><output id="wallet"></output><button type="button" id="upgrade" title="升級招式（U）"></button></div>
 <div class="controls" id="controls" hidden><div class="stick" id="stick" aria-label="移動搖桿"><i></i></div><button type="button" id="summon" class="summon" title="召喚隨機朋友（F），第二關兩次，其餘關卡一次"><img id="friendFace" src="assets/face-1.png" alt=""><b aria-hidden="true">+</b><span id="friendLabel">召喚朋友</span></button><div class="charge-control"><progress id="chargeBar" max="100" value="0" aria-label="必殺儲氣"></progress><button class="skill" id="skill">儲氣</button></div><div class="stick aim-pad" id="aimPad" aria-label="拖向射擊方向"><i></i></div></div>
@@ -83,4 +86,4 @@ canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
 </div><button class="primary" id="start" disabled>載入中</button></section>
 <section class="panel" id="pausePanel" aria-labelledby="pauseTitle" hidden><h2 id="pauseTitle">遊戲暫停</h2><button class="primary" id="resume" type="button">繼續打怪</button></section></div>
 <p class="help">撳朋友頭像或 F 召喚隊友，第二關兩次，其餘關卡一次，支援 10 秒<br>紫線預告衝鋒 · 避開王招，趁核心外露放必殺<br>執幣後按「升級」或 U 強化武器<br>左桿移動 · 右桿拖向目標開火，放手停火<br>電腦用 WASD／方向鍵移動，滑鼠左鍵或 IJKL 開火，長按空白鍵或必殺掣儲氣，滿格放手出招 · <a class="voice-credit" href="assets/sound/credits.txt" target="_blank" rel="noopener">語音來源</a></p>
-</main><script src="audio.js?v=hollow-bell"></script><script src="game.js?v=hollow-bell"></script></html>
+</main><script src="audio.js?v=supply-drops"></script><script src="game.js?v=supply-drops"></script></html>

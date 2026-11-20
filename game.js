@@ -124,6 +124,8 @@ function resetStick() {
 }
 const chargeSeconds = 1.5;
 const chargeBar = document.getElementById('chargeBar');
+const pickupStatus = document.getElementById('pickupStatus');
+const specialStatus = document.getElementById('specialStatus');
 const cutins = new Image();
 cutins.src = 'assets/hero-cutins.webp';
 const cutinDuration = .85;
@@ -133,12 +135,12 @@ let chargeSource = null;
 let charge = 0;
 let chargeStartedAt = 0;
 function heldSeconds() {
-  return Math.min(chargeSeconds,(performance.now()-chargeStartedAt)/1000);
+  return Math.min(chargeSeconds,game.storedCharge+(performance.now()-chargeStartedAt)/1000);
 }
 function cancelCharge() {
   battleAudio.cancelCharge();
   chargeSource = null;
-  charge = 0;
+  charge = game?.storedCharge ?? 0;
 }
 function beginCharge(source) {
   if (!game?.running || game.paused || game.won || game.ending || game.hero.skill || chargeSource !== null) return false;
@@ -151,8 +153,56 @@ function releaseCharge(source) {
   if (source !== chargeSource) return;
   const full = heldSeconds() >= chargeSeconds;
   cancelCharge();
-  if (full) ultimate();
-  else battleAudio.play('cancel',.36);
+  if (full) {
+    game.storedCharge = charge = 0;
+    ultimate();
+  } else battleAudio.play('cancel',.36);
+}
+const specialDuration = 8;
+const pickupTypes = [
+  {asset:'energy-tonic',name:'補能藥水',color:'#75ffc1',charge:.5},
+  {asset:'full-charge',name:'滿儲氣藥水',color:'#ffdc72',charge:1},
+  {asset:'prism-volley',name:'稜光散射炮',color:'#ff86db',spread:[-.28,-.14,0,.14,.28],damage:24,delay:.34,speed:660,size:5,pierce:0},
+  {asset:'ion-lance',name:'電離貫穿炮',color:'#79f4ff',spread:[0],damage:78,delay:.30,speed:900,size:8,pierce:3},
+  {asset:'flare-repeat',name:'日焰連發炮',color:'#ffa568',spread:[-.045,.045],damage:26,delay:.13,speed:780,size:5,pierce:0}
+];
+for (const item of pickupTypes) {
+  item.sprite = new Image();
+  item.sprite.src = 'assets/'+item.asset+'.png';
+}
+function stepPickups(dt) {
+  const {hero} = game;
+  if (game.specialWeapon && game.time>=game.specialUntil) {
+    game.specialWeapon = null;
+    hero.attack = 0;
+  }
+  if (game.time>=game.nextPickup) {
+    // A weapon drop rolls its own variant, so all three drop categories have equal odds.
+    const roll = Math.floor(Math.random()*3);
+    const item = pickupTypes[roll<2 ? roll : 2+Math.floor(Math.random()*3)];
+    game.pickups.push({item,x:62+Math.random()*(width-124),y:350,targetY:420+Math.random()*136,life:10});
+    game.nextPickup = game.time+10+Math.random()*6;
+  }
+  game.pickups = game.pickups.filter(drop => {
+    drop.life -= dt;
+    if (drop.life<=0) return false;
+    drop.y = Math.min(drop.targetY,drop.y+145*dt);
+    if (drop.y<drop.targetY || Math.hypot(hero.x-drop.x,hero.y-20-drop.y)>38) return true;
+    const {item} = drop;
+    if (item.charge) {
+      game.storedCharge = Math.min(chargeSeconds,game.storedCharge+item.charge*chargeSeconds);
+      charge = chargeSource === null ? game.storedCharge : heldSeconds();
+    } else {
+      game.specialWeapon = item;
+      game.specialUntil = game.time+specialDuration;
+      hero.attack = 0;
+    }
+    pickupStatus.textContent = '拾獲 '+item.name;
+    game.pickupNoticeUntil = game.time+1.8;
+    battleAudio.play(item.charge ? 'tonic-pickup' : 'weapon-pickup',.60);
+    burst(drop.x,drop.y,item.color,18);
+    return false;
+  });
 }
 const coinTypes = [
   {value:1, color:'#80ed65', mark:'1'},
@@ -229,6 +279,8 @@ function pauseGame(paused, focus = true) {
   if (!paused) battleAudio.play('select',.40);
   battleLine.hidden=paused || !game.lineTime;
   lootControls.hidden = paused;
+  pickupStatus.hidden = paused || game.time>=game.pickupNoticeUntil;
+  specialStatus.hidden = paused || !game.specialWeapon;
   ui.pausePanel.hidden = !paused;
   ui.controls.hidden = paused;
   ui.pause.hidden = paused;
@@ -319,9 +371,11 @@ function start() {
   game = {
     weaponLevel:loadout.checked ? progress.levels[selected] : 0, cleanDodge:false, stage, stats:level.stats, bosses:[], running:true, paused:false, time:0, score:0, wave:1, spawn:2.25, formation:0,
     lineTime:0, cutin:0, ultimateResult:null, explosion:0, coins:[], balance:0, earned:0, lootTime:0, chain:0, chainTime:0, bestChain:0, breachFlash:0,
+    pickups:[], nextPickup:stage>=2 ? 5+Math.random()*4 : Infinity, pickupNoticeUntil:0, storedCharge:0, specialWeapon:null, specialUntil:0,
     scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonsLeft:level.summons, allyCutin:false, queuedUltimate:false, gate:null, gateIndex:0, nextGate:5, bullets:[], enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
     hero:{actor:selected,x:width/2,y:552,hp:100,attack:0,skill:0,guard:0,hurt:0,face:1,moving:false,stride:0,footDistance:0,aim:0}
   };
+  charge = 0;
   friendFace.src=choices[(selected+1)%choices.length].querySelector('img').src;
   formation(124);
   ui.activeFace.src = choices[selected].querySelector('img').src;
@@ -366,9 +420,15 @@ function hud() {
   }
   ui.skill.setAttribute('aria-disabled', String(hero.skill > 0));
   const full = charge >= chargeSeconds;
+  pickupStatus.hidden = game.time>=game.pickupNoticeUntil || game.won;
+  specialStatus.hidden = !game.specialWeapon;
+  if (game.specialWeapon) {
+    const label = game.specialWeapon.name+' · '+Math.ceil(game.specialUntil-time)+'s';
+    if (specialStatus.textContent!==label) specialStatus.textContent=label;
+  }
   chargeBar.value = Math.floor(100*charge/chargeSeconds);
   ui.skill.classList.toggle('full',full);
-  ui.skill.textContent = hero.skill > 0 ? Math.ceil(hero.skill) + 's' : full ? '放手' : '儲氣';
+  ui.skill.textContent = hero.skill > 0 ? Math.ceil(hero.skill) + 's' : full ? (chargeSource === null ? '必殺' : '放手') : '儲氣';
 }
 function finish(won) {
   game.running = false;
@@ -377,6 +437,7 @@ function finish(won) {
   battleAudio.play(won ? 'win' : 'lose',.78);
   battleLine.hidden=true;
   lootControls.hidden = true;
+  pickupStatus.hidden = specialStatus.hidden = true;
   resetInput();
   ui.controls.hidden = true;
   ui.pause.hidden = true;
@@ -466,10 +527,11 @@ function formation(baseY=-24) {
     spawn(type,66+72*lane,baseY-Math.abs(lane-2)*(pattern===1?17:8));
   }
 }
-function shoot(angle,damage,speed,size) {
+function shoot(angle,damage,speed,size,specialWeapon=null) {
   const {hero} = game;
   angle += hero.aim;
-  game.bullets.push({level:game.weaponLevel,pierced:[],originX:hero.x,originY:hero.y-24,x:hero.x+52*Math.sin(angle),y:hero.y-24-52*Math.cos(angle),dx:Math.sin(angle)*speed,dy:-Math.cos(angle)*speed,damage,size});
+  const pierce = specialWeapon ? specialWeapon.pierce : selected===1 ? game.weaponLevel : 0;
+  game.bullets.push({level:game.weaponLevel,specialWeapon,pierce,pierced:[],originX:hero.x,originY:hero.y-24,x:hero.x+52*Math.sin(angle),y:hero.y-24-52*Math.cos(angle),dx:Math.sin(angle)*speed,dy:-Math.cos(angle)*speed,damage,size});
 }
 function enemySize(enemy) {
   return game.stats[enemy.type].size * (.63+.43*clamp(enemy.y/410,0,1));
@@ -789,18 +851,21 @@ function step(dt) {
     if (!game.coins.length || game.lootTime<=0) finish(true);
     return;
   }
+  if (game.stage>=2) stepPickups(dt);
   stepFriend(dt);
   if (game.allyCutin) return;
   if (game.stage===3) stepStormGate(dt);
   const firing = aimWeapon(hero);
   if (firing && hero.attack === 0) {
-    hero.attack = weapon.delay;
-    battleAudio.play('shot-'+hero.actor+(game.weaponLevel ? '-up' : ''),.76);
+    const special = game.specialWeapon;
+    const shot = special || weapon;
+    hero.attack = shot.delay;
+    battleAudio.play(special ? special.asset : 'shot-'+hero.actor+(game.weaponLevel ? '-up' : ''),special ? .55 : .76);
     game.muzzle = .085;
     const level=game.weaponLevel;
-    const spread=level ? upgradeSpread[selected] : weapon.spread;
-    for (const angle of spread) shoot(angle,weapon.damage,580+35*level,selected===2?6:4);
-    burst(hero.x,hero.y-28,weapon.color,2);
+    const spread = special || !level ? shot.spread : upgradeSpread[selected];
+    for (const angle of spread) shoot(angle,shot.damage,special ? shot.speed : 580+35*level,special ? shot.size : selected===2 ? 6 : 4,special);
+    burst(hero.x,hero.y-28,shot.color,2);
   }
   game.spawn -= dt;
   if (game.spawn <= 0) {
@@ -871,7 +936,7 @@ function step(dt) {
       const t=clamp(((enemy.x-fromX)*dx+(enemy.y-fromY)*dy)/(dx*dx+dy*dy || 1),0,1);
       if (Math.hypot(fromX+t*dx-enemy.x,fromY+t*dy-enemy.y)>enemySize(enemy)*.40+shot.size) continue;
       hit(enemy,shot.damage);
-      if (selected===1 && shot.pierced.length<shot.level) {
+      if (shot.pierced.length<shot.pierce) {
         shot.pierced.push(enemy);
         continue;
       }
@@ -887,6 +952,9 @@ function step(dt) {
   if (won || hero.hp<=0 || game.time>=stages[game.stage].seconds) {
     game.friend=null;
     game.gate=null;
+    game.pickups=[];
+    game.specialWeapon=null;
+    game.pickupNoticeUntil=0;
     game.won = won;
     for (const boss of game.bosses) boss.hazard = null;
     if (won) {
@@ -894,6 +962,7 @@ function step(dt) {
       game.enemies = [];
       game.bullets = [];
       game.casts = [];
+      game.storedCharge = 0;
       cancelCharge();
     } else {
       battleAudio.setBattle(false);
@@ -1242,11 +1311,13 @@ function draw() {
     ctx.restore();
   }
   for (const shot of game.bullets) {
-    const color = stats[selected].color;
+    const color = shot.specialWeapon?.color ?? stats[selected].color;
     ctx.save();
     ctx.translate(shot.x,shot.y);
     ctx.rotate(Math.atan2(shot.dy,shot.dx));
-    if (shot.level) {
+    if (shot.specialWeapon) {
+      star(0,0,shot.size+5,0,color);
+    } else if (shot.level) {
       ctx.rotate(Math.PI/2);
       art(39+selected,0,0,30+shot.level*6);
     } else if (selected===0) {
@@ -1305,6 +1376,21 @@ function draw() {
     ctx.fillStyle='#fff8da';ctx.fillText(type.value,coin.x,y+21);
     ctx.restore();
   }
+  for (const drop of game.pickups) {
+    const {x,y,targetY,item,life} = drop;
+    ctx.save();
+    ctx.globalAlpha = Math.min(1,life/1.6);
+    if (y<targetY) {
+      ctx.setLineDash([4,5]);
+      line(x,y,x,targetY,item.color,1.5);
+      ctx.setLineDash([]);
+    }
+    glow(x,targetY,18,item.color+'66');
+    const hoverY = y-(reducedMotion ? 0 : Math.sin(time*7)*2);
+    glow(x,hoverY,29,item.color+'77');
+    ctx.drawImage(item.sprite,x-26,hoverY-26,52,52);
+    ctx.restore();
+  }
   if (game.fall) {
     drawFall(hero);
     ctx.restore();
@@ -1326,7 +1412,7 @@ function draw() {
     ctx.stroke();
   }
   const injured = hero.hurt>.38 && hero.guard===0;
-  const attacking = hero.attack>stats[selected].delay*.69 || game.casts.length>0;
+  const attacking = hero.attack>(game.specialWeapon ?? stats[selected]).delay*.69 || game.casts.length>0;
   const running = hero.moving && Math.sin(hero.stride)>-.4;
   const frame = running && !attacking && !injured ? 21+selected : pose(selected,attacking,injured);
   const lift = hero.moving ? -3*Math.abs(Math.sin(hero.stride)) : Math.sin(time*5)*.7;
@@ -1340,15 +1426,24 @@ function draw() {
   art(game.weaponLevel ? upgradedFrame : baseFrame,0,0,160,hero.face,hero.hurt>.54 && hero.guard===0);
   ctx.restore();
   const aimX = Math.sin(hero.aim), aimY = -Math.cos(hero.aim);
+  const special = game.specialWeapon;
+  const shotColor = special?.color ?? stats[selected].color;
+  if (special) {
+    ctx.save();
+    ctx.translate(hero.x+aimX*33,hero.y-24+aimY*33);
+    ctx.rotate(hero.aim);
+    ctx.drawImage(special.sprite,-26,-26,52,52);
+    ctx.restore();
+  }
   const tipX = hero.x+aimX*57, tipY = hero.y-20+aimY*57;
   for (const side of [-1,1]) {
-    line(tipX,tipY,tipX-aimX*10+side*aimY*5,tipY-aimY*10-side*aimX*5,stats[selected].color,3);
+    line(tipX,tipY,tipX-aimX*10+side*aimY*5,tipY-aimY*10-side*aimX*5,shotColor,3);
   }
   if (game.muzzle>0) {
     const power = game.muzzle/.085;
     const x=hero.x+aimX*59, y=hero.y-24+aimY*59;
-    glow(x,y,33*power+5,stats[selected].color+'ce');
-    star(x,y,6+power*18,hero.aim,stats[selected].color);
+    glow(x,y,33*power+5,shotColor+'ce');
+    star(x,y,6+power*18,hero.aim,shotColor);
     star(x,y,4+power*10,hero.aim,'#fffbea');
   }
   for (const fx of game.impacts) {
@@ -1426,7 +1521,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-Promise.all([street,reactor,skybridge,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites].map(sprite=>sprite.decode())).then(()=>{
+Promise.all([street,reactor,skybridge,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
   ui.start.disabled = false;
   ui.start.textContent = '開始打怪';
 }).catch(()=>{ui.start.textContent = '素材載入失敗，請重新整理';});
