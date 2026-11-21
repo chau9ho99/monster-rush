@@ -108,8 +108,19 @@ function aimWeapon(hero) {
 let previous;
 choices.forEach((button,i) => button.onclick = event => {
   if (event) battleAudio.play('select',.48,.08);
+  const showcase = document.getElementById('showcase');
+  if (i !== selected && !reducedMotion) {
+    showcase.getAnimations().forEach(animation => animation.cancel());
+    showcase.animate([
+      {transform:'translateX(5%)',opacity:.7},
+      {transform:'translateX(0)',opacity:1}
+    ],{duration:180,easing:'ease-out'});
+  }
   selected = i;
-  document.getElementById('showcase').src = sprites[loadout.checked && progress.levels[i] ? equippedFrame(i,0) : 24+i].src;
+  ui.menu.dataset.hero = String(i);
+  document.getElementById('posterName').textContent = button.querySelector('span').textContent;
+  document.getElementById('posterMove').textContent = button.querySelector('small').textContent;
+  showcase.src = sprites[loadout.checked && progress.levels[i] ? equippedFrame(i,0) : 24+i].src;
   choices.forEach((item,index) => item.setAttribute('aria-pressed',String(index === i)));
 });
 document.getElementById('pressStart').onclick = () => {
@@ -339,8 +350,16 @@ const stages={
   2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'90 秒內擊倒熔爐巨龜同冰核巨猿'},
   3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，聽到喪鐘就避開王招，再瞄準外露核心反擊'}
 };
+const missionArt = {
+  1: ['anime-alley.webp','5.png'],
+  2: ['anime-reactor.webp','furnace.webp'],
+  3: ['storm-skybridge.webp','hollow-warden.webp']
+};
 function refreshStageMenu() {
   const level=stages[stagePick.value];
+  const [arena,boss] = missionArt[stagePick.value];
+  ui.menu.style.setProperty('--arena', 'url("assets/'+arena+'")');
+  document.getElementById('missionBoss').src = 'assets/'+boss;
   document.getElementById('objective').textContent=level.objective;
   document.getElementById('stageHeader').textContent='LV'+stagePick.value+' · '+level.seconds+' 秒';
 }
@@ -389,6 +408,7 @@ function start() {
   hud();
 }
 ui.start.onclick = start;
+const bossSignal = document.getElementById('bossSignal');
 function hud() {
   const {hero,wave,time,score,bosses} = game;
   summonButton.disabled=!!game.friend || !game.summonsLeft || game.won || !!game.ending;
@@ -411,7 +431,13 @@ function hud() {
   ui.health.value = Math.max(0,hero.hp);
   ui.hudBar.classList.toggle('danger',hero.hp<=25);
   ui.boss.hidden = !game.running || !bosses.some(b=>b.hp>0);
-  if (bosses.length) {
+  if (!ui.boss.hidden) {
+    const charging = bosses.some(b => b.hp > 0 && b.hazard?.windup > 0);
+    const exposed = bosses.some(b => b.hp > 0 && b.exposed > 0);
+    const signal = charging ? '儲氣中・避開攻擊範圍' : exposed ? '核心外露・反擊' : '';
+    if (bossSignal.textContent !== signal) bossSignal.textContent = signal;
+    ui.boss.classList.toggle('charging',charging);
+    ui.boss.classList.toggle('exposed',exposed && !charging);
     ui.bossHealth.max = game.stats[2].hp;
     ui.bossHealth.value = Math.max(0,bosses[0].hp);
     document.getElementById('bossName').textContent = stages[game.stage].boss;
@@ -426,7 +452,11 @@ function hud() {
     const label = game.specialWeapon.name+' · '+Math.ceil(game.specialUntil-time)+'s';
     if (specialStatus.textContent!==label) specialStatus.textContent=label;
   }
-  chargeBar.value = Math.floor(100*charge/chargeSeconds);
+  const chargePercent = Math.floor(100*charge/chargeSeconds);
+  if (chargeBar.value !== chargePercent) {
+    chargeBar.value = chargePercent;
+    ui.skill.style.setProperty('--charge', chargePercent+'%');
+  }
   ui.skill.classList.toggle('full',full);
   ui.skill.textContent = hero.skill > 0 ? Math.ceil(hero.skill) + 's' : full ? (chargeSource === null ? '必殺' : '放手') : '儲氣';
 }
