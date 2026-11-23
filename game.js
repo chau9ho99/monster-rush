@@ -345,15 +345,30 @@ for (const name of ['porcelain-crawler','knell-hound','hollow-warden']) {
   monster.src='assets/'+name+'.webp';
   sprites.push(monster);
 }
+const desertBackdrop=new Image();
+desertBackdrop.src='assets/sunken-sun-gate.webp';
+const desertFrame=sprites.length;
+for (const name of ['lapis-scarab','dune-jackal','sun-scorpion']) {
+  const sprite=new Image();
+  sprite.src='assets/'+name+'.webp';
+  sprites.push(sprite);
+}
+const desertStats=[
+  {...enemyStats[0],hp:72,speed:72,size:80,value:180,color:'#65e8f2'},
+  {...enemyStats[1],hp:64,speed:105,size:89,value:240,color:'#ffbb65'},
+  {...enemyStats[2],hp:1580,size:172,value:2400,color:'#ffc561'}
+];
 const stages={
   1:{seconds:60,summons:1,stats:enemyStats,boss:'熔岩石魔王',victory:'霓虹街守住喇！',objective:'守住防線，60 秒內擊倒熔岩石魔王'},
   2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'90 秒內擊倒熔爐巨龜同冰核巨猿'},
-  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，聽到喪鐘就避開王招，再瞄準外露核心反擊'}
+  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，聽到喪鐘就避開王招，再瞄準外露核心反擊'},
+  4:{seconds:90,summons:1,stats:desertStats,boss:'曜核蠍皇',victory:'沙漠風暴平息喇！',objective:'逆風穩住陣腳，避開蠍尾射線，雙鉗落下前走入青色沙道'}
 };
 const missionArt = {
   1: ['anime-alley.webp','5.png'],
   2: ['anime-reactor.webp','furnace.webp'],
-  3: ['storm-skybridge.webp','hollow-warden.webp']
+  3: ['storm-skybridge.webp','hollow-warden.webp'],
+  4: ['sunken-sun-gate.webp','sun-scorpion.webp']
 };
 function refreshStageMenu() {
   const level=stages[stagePick.value];
@@ -362,6 +377,11 @@ function refreshStageMenu() {
   document.getElementById('missionBoss').src = 'assets/'+boss;
   document.getElementById('objective').textContent=level.objective;
   document.getElementById('stageHeader').textContent='LV'+stagePick.value+' · '+level.seconds+' 秒';
+}
+const entryStage=new URLSearchParams(location.search).get('stage');
+if (Object.hasOwn(stages,entryStage)) {
+  stagePick.value=entryStage;
+  refreshStageMenu();
 }
 stagePick.onchange = () => {
   battleAudio.play('select',.48);
@@ -391,7 +411,7 @@ function start() {
     weaponLevel:loadout.checked ? progress.levels[selected] : 0, cleanDodge:false, stage, stats:level.stats, bosses:[], running:true, paused:false, time:0, score:0, wave:1, spawn:2.25, formation:0,
     lineTime:0, cutin:0, ultimateResult:null, explosion:0, coins:[], balance:0, earned:0, lootTime:0, chain:0, chainTime:0, bestChain:0, breachFlash:0,
     pickups:[], nextPickup:stage>=2 ? 5+Math.random()*4 : Infinity, pickupNoticeUntil:0, storedCharge:0, specialWeapon:null, specialUntil:0,
-    scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonsLeft:level.summons, allyCutin:false, queuedUltimate:false, gate:null, gateIndex:0, nextGate:5, bullets:[], enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
+    scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonsLeft:level.summons, allyCutin:false, queuedUltimate:false, wind:stage===4 ? makeDesertWind() : null, gate:null, gateIndex:0, nextGate:5, bullets:[], enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
     hero:{actor:selected,x:width/2,y:552,hp:100,attack:0,skill:0,guard:0,hurt:0,face:1,moving:false,stride:0,footDistance:0,aim:0}
   };
   charge = 0;
@@ -434,7 +454,8 @@ function hud() {
   if (!ui.boss.hidden) {
     const charging = bosses.some(b => b.hp > 0 && b.hazard?.windup > 0);
     const exposed = bosses.some(b => b.hp > 0 && b.exposed > 0);
-    const signal = charging ? '儲氣中・避開攻擊範圍' : exposed ? '核心外露・反擊' : '';
+    const pincers = charging && bosses.some(b=>b.hp>0 && b.hazard?.safeHalf && b.hazard.windup>0);
+    const signal = pincers ? '雙鉗合擊・入青色沙道' : charging ? '儲氣中・避開攻擊範圍' : exposed ? '核心外露・反擊' : '';
     if (bossSignal.textContent !== signal) bossSignal.textContent = signal;
     ui.boss.classList.toggle('charging',charging);
     ui.boss.classList.toggle('exposed',exposed && !charging);
@@ -476,7 +497,7 @@ function finish(won) {
   ui.heading.textContent = won ? stages[game.stage].victory : game.hero.hp <= 0 ? '你死撚左了！' : '時間到！';
   ui.result.textContent = '得分 ' + game.score + ' · 最高連殺 ' + game.bestChain + ' · 拾獲 ' + game.earned + ' 幣';
   ui.result.hidden = false;
-  if (won && game.stage<3) {
+  if (won && stages[game.stage+1]) {
     stagePick.value=String(game.stage+1);
     refreshStageMenu();
     ui.start.textContent = '進入 LV'+stagePick.value;
@@ -765,31 +786,36 @@ function stepBossAttack(boss,dt) {
     if (boss.delay>0) return;
     const lane = game.stage===2 ? boss.variant===0 : boss.turn++ % 2 === 0;
     const points = lane ? [hero.x] : [hero.x,clamp(hero.x+(hero.x<width/2 ? 108 : -108),42,width-42)];
-    const duration = game.stage===3 ? 1.15 : lane ? 1.65 : 1.85;
+    const pincers = game.stage===4 && !lane;
+    const duration = pincers ? 1.7 : game.stage===3 ? 1.15 : lane ? 1.65 : 1.85;
     const originY = boss.y+22;
     const angle = Math.atan2(hero.x-boss.x,hero.y-12-originY);
     battleAudio.play(game.stage===3 ? 'warden-toll' : 'warning',.62,.35);
     boss.hazard = {lane,points,y:hero.y-12,originY,angle,
       length:(breachLine-originY)/Math.cos(angle),duration,windup:duration,flare:.34};
+    if (pincers) {
+      boss.hazard.safeHalf=47;
+      boss.hazard.safeX=clamp(hero.x+(hero.x<width/2 ? 85 : -85),82,width-82);
+    }
   }
   const hazard = boss.hazard;
   if (hazard.windup>0) {
     hazard.windup -= dt;
     if (hazard.windup>0) return;
-    battleAudio.play('boss-strike',.67,.12);
+    battleAudio.play(hazard.safeHalf ? 'pincer-slam' : 'boss-strike',.67,.12);
     boss.strike = .38;
     game.shake = 4;
     const dx=hero.x-boss.x, dy=hero.y-12-hazard.originY;
     const along=dx*Math.sin(hazard.angle)+dy*Math.cos(hazard.angle);
     const across=dx*Math.cos(hazard.angle)-dy*Math.sin(hazard.angle);
-    const caught=hazard.lane
+    const caught=hazard.safeHalf ? Math.abs(hero.x-hazard.safeX)>hazard.safeHalf : hazard.lane
       ? along>=0 && along<=hazard.length && Math.abs(across)<laneHalfWidth
       : hazard.points.some(x=>Math.hypot(hero.x-x,hero.y-12-hazard.y)<blastRadius);
     if (!caught) {
       game.cleanDodge=true;
       battleAudio.play('dodge',.53,.15);
     } else if (hero.guard>0) battleAudio.play('block',.64,.12);
-    boss.exposed = game.stage===3 ? (caught ? 0 : 2.15) : 1.6;
+    boss.exposed = game.stage>=3 ? (caught ? 0 : 2.15) : 1.6;
     if (caught && hero.guard<=0 && hero.hurt<=0) {
       battleAudio.play('hurt',.75,.12);
       hero.hp -= hazard.lane ? 22 : 18;
@@ -860,14 +886,16 @@ function step(dt) {
   const norm = Math.max(1,Math.hypot(x,y));
   const oldX = hero.x;
   const oldY = hero.y;
-  hero.x = clamp(hero.x+x/norm*weapon.speed*dt,48,width-48);
+  if (game.wind && !game.won) updateDesertWind(game.wind,game.time,dt);
+  const drift=game.wind?.force || 0;
+  hero.x = clamp(hero.x+(x/norm*weapon.speed+drift)*dt,48,width-48);
   hero.y = clamp(hero.y+y/norm*weapon.speed*dt,398,582);
   const travelled = Math.hypot(hero.x-oldX,hero.y-oldY);
   updateScenery(dt,hero.x-oldX,hero.y-oldY,travelled);
   if (travelled>.01) {
     hero.footDistance-=travelled;
     if (hero.footDistance<=0) {
-      battleAudio.play(game.stage===1 ? 'wet-step' : 'steel-step',.30,.12);
+      battleAudio.play(game.stage===4 ? 'sand-step' : game.stage===1 ? 'wet-step' : 'steel-step',.30,.12);
       hero.footDistance=38;
     }
   } else hero.footDistance=0;
@@ -982,6 +1010,7 @@ function step(dt) {
   if (won || hero.hp<=0 || game.time>=stages[game.stage].seconds) {
     game.friend=null;
     game.gate=null;
+    game.wind=null;
     game.pickups=[];
     game.specialWeapon=null;
     game.pickupNoticeUntil=0;
@@ -1067,12 +1096,13 @@ function updateScenery(dt,dx,dy,distance) {
 function road() {
   const stage=game?.running ? game.stage : Number(stagePick.value);
   const second=stage>=2;
-  const backdrop=stage===3 ? skybridge : second ? reactor : street;
+  const backdrop=[street,reactor,skybridge,desertBackdrop][stage-1];
   const camera=game?.scenery;
   const x=camera?.x || 0,y=camera?.y || 0;
   if (backdrop.complete && backdrop.naturalWidth) {
     ctx.drawImage(backdrop,-12-x,-10-y,width+24,height+20);
   } else {ctx.fillStyle='#10192a';ctx.fillRect(0,0,width,height);}
+  if (stage===4) { drawDesertWeather(game?.wind); return; }
   if (!game || reducedMotion) return;
   ctx.save();
   const t=game.time;
@@ -1147,6 +1177,7 @@ function drawChargeEffect(tile,x,y,size,angle,opacity) {
   ctx.restore();
 }
 function drawHazard(h,boss) {
+  if (h.safeHalf) { drawPincerStrike(h); return; }
   const warning=h.windup>0;
   const power=warning ? 1-h.windup/h.duration : 1;
   ctx.save();
@@ -1232,7 +1263,7 @@ function drawBossCharge(boss) {
   const y=boss.y-enemySize(boss)*.53;
   ctx.fillStyle='#170e16e0';ctx.fillRect(boss.x-49,y-17,98,23);
   ctx.fillStyle='#ffcd7b';ctx.font='bold 12px system-ui';ctx.textAlign='center';
-  ctx.fillText(h.lane ? '儲氣 · 避開箭道' : '儲氣 · 離開光圈',boss.x,y-3);
+  ctx.fillText(h.safeHalf ? '雙鉗 · 入青色沙道' : h.lane ? '儲氣 · 避開箭道' : '儲氣 · 離開光圈',boss.x,y-3);
   ctx.fillRect(boss.x-46,y+1,92*power,3);
   ctx.restore();
 }
@@ -1381,6 +1412,8 @@ function draw() {
     const lunging = enemy.strike > 0 || (enemy.y > hero.y-108 && Math.abs(enemy.x-hero.x)<65);
     if (game.stage===3) {
       drawStormMonster(enemy,size,time);
+    } else if (game.stage===4) {
+      drawDuneMonster(enemy,size,time);
     } else {
       const frame=game.stage===2 ? reactorFrame+enemy.type+(enemy.variant||0) : pose(enemy.type+3,lunging,enemy.flash>0);
       art(frame,enemy.x,enemy.y+Math.sin(time*12+enemy.phase)*2,size,1,enemy.flash>0);
@@ -1551,7 +1584,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-Promise.all([street,reactor,skybridge,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
+Promise.all([street,reactor,skybridge,desertBackdrop,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
   ui.start.disabled = false;
   ui.start.textContent = '開始打怪';
 }).catch(()=>{ui.start.textContent = '素材載入失敗，請重新整理';});

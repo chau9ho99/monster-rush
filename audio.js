@@ -1,5 +1,5 @@
 const battleAudio = (() => {
-  const names = ['actions','shot-0','shot-1','shot-2','charge','hit','coin','warning','warden-toll',
+  const names = ['actions','shot-0','shot-1','shot-2','charge','hit','coin','warning','warden-toll','sand-gust','sand-step','pincer-slam',
     'tonic-pickup','weapon-pickup','prism-volley','ion-lance','flare-repeat'];
   for (let actor=0;actor<3;actor++) {
     names.push('shot-'+actor+'-up','ult-'+actor,'voice-'+actor);
@@ -154,7 +154,7 @@ const battleAudio = (() => {
       level.disconnect();
     };
     if (earlyShot) {
-      const pitch=[1080,480,1700][Number(name[4])];
+      const pitch=[1080,480,1700][Number(name[5])];
       source.frequency.setValueAtTime(pitch,now);
       source.frequency.exponentialRampToValueAtTime(pitch*.22,now+.10);
       level.gain.setValueAtTime(gain*.45,now);
