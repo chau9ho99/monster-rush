@@ -1,5 +1,5 @@
 <!doctype html>
-<html lang="zh-Hant-HK"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"><meta name="theme-color" content="#10151d"><title>怪獸突襲</title>
+<html lang="zh-Hant-HK"><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, minimum-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover"><meta name="theme-color" content="#10151d"><title>怪獸突襲</title>
 <style>
 *{box-sizing:border-box}body{margin:0;background:#090b16;color:#ededff;font:700 14px system-ui,sans-serif}main{width:min(100%,480px);margin:auto;padding:8px 10px 12px}header{display:flex;justify-content:space-between;align-items:center;margin:0 2px 7px}h1{font-size:clamp(20px,4vw,27px);letter-spacing:.08em;margin:0}header span{color:#84ecff;font-size:11px;letter-spacing:.15em}.frame{position:relative;isolation:isolate;overflow:hidden;border:1px solid #416e91;border-radius:15px;background:#0b1424;box-shadow:0 0 28px #2a82ff2c}canvas{width:100%;height:auto;display:block;aspect-ratio:420/680;touch-action:none}.hud{position:absolute;inset:8px 8px auto;display:grid;grid-template-columns:1fr 1.2fr 1fr;gap:6px;pointer-events:none}.hud>div{background:#0b1728ee;border:1px solid #54768e;border-radius:6px;padding:5px 6px;text-align:center;font-size:11px;font-variant-numeric:tabular-nums}.hud meter{width:100%;height:9px;display:block;accent-color:#61e7ff}.hud meter::-webkit-meter-optimum-value{background:#61e7ff}.hud span{color:#b6cfe0}.boss{position:absolute;inset:57px 20% auto;text-align:center;color:#ffb57d;font-size:10px;pointer-events:none}.boss progress{display:block;width:100%;height:7px;accent-color:#ff794e}.controls{position:absolute;bottom:10px;inset-inline:13px;display:flex;justify-content:space-between;align-items:center;pointer-events:none}.stick,.skill{width:65px;height:65px;border-radius:50%;pointer-events:auto;touch-action:none}.stick{position:relative;background:#17354bbb;border:2px solid #7dc9e6aa}.stick i{position:absolute;inset:14px;border-radius:50%;background:#85d4e9;border:2px solid #d9f9ff;pointer-events:none}.skill{background:#27193e;border:2px solid #f4aefe;color:#ffe1ff;box-shadow:0 0 15px #fa62f85c}.skill[aria-disabled=true]{opacity:.6}.panel{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;background:#080d21df;padding:12px;gap:16px}.panel h2,.panel p{margin:0;text-align:center}.panel h2{font-size:clamp(20px,5vw,29px)}.choices{display:flex;gap:6px;width:100%}button{font:inherit;cursor:pointer;color:inherit;border-radius:9px;border:1px solid #60788c;background:#202d3d;padding:6px}button:focus-visible{outline:3px solid white;outline-offset:2px}.choice{flex:1;min-width:0;display:grid;justify-items:center;gap:3px;font-size:clamp(11px,3vw,14px)}.choice[aria-pressed=true]{background:#343157;border-color:#8aefff}.choice img{width:100%;height:clamp(56px,18vw,100px);object-fit:contain}.choice small{color:#c2d5e9;font-size:.8em}.primary{background:#8aefff;color:#112031;border-color:#8aefff;padding:8px 21px}.help{color:#aabecc;font-size:11px;text-align:center;margin:8px 0 0}.result{color:#9dedff}[hidden]{display:none!important}
 .hud{position:static;display:grid;grid-template-columns:clamp(56px,16vw,76px) minmax(0,1fr) auto auto;align-items:center;gap:9px;margin-bottom:6px;border:1px solid #416e91;border-radius:12px;background:#101d30;overflow:hidden;padding-right:10px}
@@ -55,7 +55,7 @@ canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
 .pickup-status{position:absolute;left:50%;top:24%;transform:translateX(-50%);pointer-events:none;display:grid;justify-items:center;gap:4px;white-space:nowrap;font-size:clamp(11px,3cqw,14px);font-weight:800}
 .pickup-status output,.pickup-status span{padding:4px 9px;border-radius:7px;border:1px solid #90b8df;background:#091829f5;color:#e3f9ff;font-variant-numeric:tabular-nums}
 </style>
-<link rel="stylesheet" href="arcade.css?v=sand-fog">
+<link rel="stylesheet" href="arcade.css?v=fixed-arena">
 <section class="title-screen" id="titleScreen" aria-labelledby="titleLogo">
 <h1 class="title-logo" id="titleLogo">怪獸突襲<small lang="en">MONSTER RUSH</small></h1>
 <img class="title-hero title-gold" src="assets/9.png" alt="金光快手">
@@ -65,7 +65,7 @@ canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
 <button class="title-start" id="pressStart" type="button" autofocus>PRESS START</button>
 </section>
 <main id="gameScreen" hidden><header><h1>怪獸突襲</h1><button class="sound-toggle" id="soundToggle" type="button" aria-label="遊戲聲音" aria-pressed="true">聲音：開</button><button class="sound-toggle music-toggle" id="musicToggle" type="button" aria-label="背景音樂" aria-pressed="true">音樂：開</button><span><span id="stageHeader">LV1 · 60 秒</span></span></header><output class="audio-message" id="audioStatus" role="status" aria-live="polite"></output>
-<div class="frame"><canvas width="420" height="746" aria-label="霓虹戰場"></canvas>
+<div class="arena-slot"><div class="frame"><canvas width="420" height="746" aria-label="霓虹戰場"></canvas>
 <div class="hud" id="hudBar" hidden>
   <img id="activeFace" alt="">
   <div class="vitals"><strong id="heroName"></strong><span id="life">HP 100</span><meter id="health" min="0" max="100" value="100"></meter></div>
@@ -102,6 +102,6 @@ canvas{aspect-ratio:420/746}.frame{box-shadow:0 12px 55px #01030bb0}
   </div>
   <label class="practice"><input id="loadout" type="checkbox"> 練習：帶入已解鎖武器</label>
   <button class="primary" id="start" disabled>載入中</button></section>
-<section class="panel" id="pausePanel" aria-labelledby="pauseTitle" hidden><h2 id="pauseTitle">遊戲暫停</h2><button class="primary" id="resume" type="button">繼續打怪</button></section></div>
+<section class="panel" id="pausePanel" aria-labelledby="pauseTitle" hidden><h2 id="pauseTitle">遊戲暫停</h2><button class="primary" id="resume" type="button">繼續打怪</button></section></div></div>
 <details class="help"><summary>操作說明</summary><p>撳朋友頭像或 F 召喚隊友，第二關兩次，其餘關卡一次，支援 10 秒<br>敵人亮起準星時可以先擊倒佢，或者側移避彈 · 趁王嘅核心外露放必殺<br>執幣後按「升級」或 U 強化武器<br>左桿移動 · 右桿拖向目標開火，放手停火<br>電腦用 WASD／方向鍵移動，滑鼠左鍵或 IJKL 開火，長按空白鍵或必殺掣儲氣，滿格放手出招 · <a class="voice-credit" href="assets/sound/credits.txt" target="_blank" rel="noopener">語音來源</a></p></details>
-</main><script src="audio.js?v=enemy-fire"></script><script src="desert.js?v=sand-fog"></script><script src="enemy-fire.js?v=1"></script><script src="game.js?v=enemy-fire"></script></html>
+</main><script src="audio.js?v=enemy-fire"></script><script src="desert.js?v=sand-fog"></script><script src="enemy-fire.js?v=1"></script><script src="game.js?v=fixed-arena"></script></html>

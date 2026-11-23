@@ -397,7 +397,14 @@ function battleCry(actor) {
   battleLine.style.setProperty('--speaker',stats[actor].color);
   battleLine.hidden=false;
 }
+// Safari also emits native gesture events when two touches start on different controls.
+for (const type of ['gesturestart','gesturechange']) {
+  document.addEventListener(type,event=>{
+    if (game?.running && event.cancelable) event.preventDefault();
+  },{passive:false});
+}
 function start() {
+  document.documentElement.classList.add('in-battle');
   battleAudio.silence();
   battleAudio.pause(false);
   battleAudio.unlock();
@@ -483,6 +490,7 @@ function hud() {
   ui.skill.textContent = hero.skill > 0 ? Math.ceil(hero.skill) + 's' : full ? (chargeSource === null ? '必殺' : '放手') : '儲氣';
 }
 function finish(won) {
+  document.documentElement.classList.remove('in-battle');
   game.running = false;
   updateStormAlert(null);
   battleAudio.setBattle(false);
