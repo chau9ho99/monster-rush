@@ -362,7 +362,7 @@ const stages={
   1:{seconds:60,summons:1,stats:enemyStats,boss:'熔岩石魔王',victory:'霓虹街守住喇！',objective:'守住防線，60 秒內擊倒熔岩石魔王'},
   2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'90 秒內擊倒熔爐巨龜同冰核巨猿'},
   3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，聽到喪鐘就避開王招，再瞄準外露核心反擊'},
-  4:{seconds:90,summons:1,stats:desertStats,boss:'曜核蠍皇',victory:'沙漠風暴平息喇！',objective:'逆風穩住陣腳，避開蠍尾射線，雙鉗落下前走入青色沙道'}
+  4:{seconds:90,summons:1,stats:desertStats,boss:'曜核蠍皇',victory:'沙漠風暴平息喇！',objective:'沙塵暴警報一響就準備迎風走位，蠍皇雙鉗落下前走入青色沙道'}
 };
 const missionArt = {
   1: ['anime-alley.webp','5.png'],
@@ -431,6 +431,7 @@ ui.start.onclick = start;
 const bossSignal = document.getElementById('bossSignal');
 function hud() {
   const {hero,wave,time,score,bosses} = game;
+  updateStormAlert(game.wind);
   summonButton.disabled=!!game.friend || !game.summonsLeft || game.won || !!game.ending;
   const label=game.friend ? '支援 '+Math.ceil(supportDuration-game.friend.age)+'s' : game.summonsLeft ? '召喚 ×'+game.summonsLeft : '已用完';
   if (friendLabel.textContent!==label) friendLabel.textContent=label;
@@ -483,6 +484,7 @@ function hud() {
 }
 function finish(won) {
   game.running = false;
+  updateStormAlert(null);
   battleAudio.setBattle(false);
   battleAudio.silence();
   battleAudio.play(won ? 'win' : 'lose',.78);
@@ -1347,6 +1349,13 @@ function drawFall(hero) {
   frame(stage,stage===0 ? 1 : blend);
   ctx.restore();
 }
+function drawDashWarning(enemy) {
+  if (enemy.dashTime!==undefined && enemy.dashTime<.65) {
+    ctx.save();ctx.setLineDash([6,5]);
+    line(enemy.x,enemy.y,enemy.dashTo,enemy.y+142,'#ff82cf',3);
+    ctx.restore();
+  }
+}
 function draw() {
   road();
   if (!game) return;
@@ -1356,7 +1365,10 @@ function draw() {
   ctx.lineCap='round';
   drawTracks();
   if (game.gate) drawStormGate(game.gate);
-  for (const boss of game.bosses) if (boss.hp>0 && boss.hazard) drawHazard(boss.hazard,boss);
+  const foggy=game.wind?.fog>0;
+  if (!foggy) {
+    for (const boss of game.bosses) if (boss.hp>0 && boss.hazard) drawHazard(boss.hazard,boss);
+  }
   const breachWarning = game.enemies.some(enemy => enemy.type !== 2 && enemy.y > breachLine-94);
   ctx.save();
   ctx.setLineDash([9,7]);
@@ -1403,11 +1415,7 @@ function draw() {
   }
   for (const enemy of [...game.enemies].sort((a,b)=>a.y-b.y)) {
     const size = enemySize(enemy);
-    if (enemy.dashTime!==undefined && enemy.dashTime<.65) {
-      ctx.save();ctx.setLineDash([6,5]);
-      line(enemy.x,enemy.y,enemy.dashTo,enemy.y+142,'#ff82cf',3);
-      ctx.restore();
-    }
+    if (!foggy) drawDashWarning(enemy);
     shadow(enemy.x,enemy.y+size*.35,size*.33);
     const lunging = enemy.strike > 0 || (enemy.y > hero.y-108 && Math.abs(enemy.x-hero.x)<65);
     if (game.stage===3) {
@@ -1418,7 +1426,17 @@ function draw() {
       const frame=game.stage===2 ? reactorFrame+enemy.type+(enemy.variant||0) : pose(enemy.type+3,lunging,enemy.flash>0);
       art(frame,enemy.x,enemy.y+Math.sin(time*12+enemy.phase)*2,size,1,enemy.flash>0);
     }
-    if (enemy.type===2) drawBossCharge(enemy);
+    if (!foggy && enemy.type===2) drawBossCharge(enemy);
+  }
+  if (foggy) {
+    drawSandFog(game.wind,hero);
+    for (const enemy of game.enemies) drawDashWarning(enemy);
+    for (const boss of game.bosses) {
+      if (boss.hp>0 && boss.hazard) {
+        drawHazard(boss.hazard,boss);
+        drawBossCharge(boss);
+      }
+    }
   }
   for (const boss of game.bosses) {
     if (boss.hp<=0 || !(boss.exposed>0)) continue;
@@ -1584,7 +1602,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-Promise.all([street,reactor,skybridge,desertBackdrop,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
+Promise.all([street,reactor,skybridge,desertBackdrop,sandFogTexture,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
   ui.start.disabled = false;
   ui.start.textContent = '開始打怪';
 }).catch(()=>{ui.start.textContent = '素材載入失敗，請重新整理';});

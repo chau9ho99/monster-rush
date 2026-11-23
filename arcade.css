@@ -164,3 +164,15 @@ body { min-height: 100svh; }
   header .sound-toggle { white-space: nowrap; font-size: 10px; padding: 3px 4px; }
   header #stageHeader { font-size: 9px; white-space: nowrap; }
 }
+
+.storm-alert {
+  position: absolute; top: max(85px, 13%); left: 3%; pointer-events: none;
+  border-left: 4px solid #ffe19a; padding: .38em .85em .42em;
+  background: #2b1d19ed; color: #fff4cf; font-size: clamp(12px, 3.45cqw, 16px);
+  font-weight: 900; letter-spacing: .04em;
+}
+.storm-alert[data-phase="warning"] {
+  background: repeating-linear-gradient(125deg, #f9a644 0 5px, #422825 5px 10px) left / 7px 100% no-repeat, #45201bf2;
+  padding-left: 1.1em; border: 1px solid #ffcf86;
+  box-shadow: 0 2px 7px #29121b59;
+}
