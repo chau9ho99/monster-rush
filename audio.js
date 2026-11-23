@@ -1,5 +1,5 @@
 const battleAudio = (() => {
-  const names = ['actions','shot-0','shot-1','shot-2','charge','hit','coin','warning','warden-toll','sand-gust','sand-step','pincer-slam',
+  const names = ['actions','shot-0','shot-1','shot-2','charge','hit','coin','warning','warden-toll','enemy-lock','enemy-shot','sand-gust','sand-step','pincer-slam',
     'tonic-pickup','weapon-pickup','prism-volley','ion-lance','flare-repeat'];
   for (let actor=0;actor<3;actor++) {
     names.push('shot-'+actor+'-up','ult-'+actor,'voice-'+actor);

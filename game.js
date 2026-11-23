@@ -359,9 +359,9 @@ const desertStats=[
   {...enemyStats[2],hp:1580,size:172,value:2400,color:'#ffc561'}
 ];
 const stages={
-  1:{seconds:60,summons:1,stats:enemyStats,boss:'熔岩石魔王',victory:'霓虹街守住喇！',objective:'守住防線，60 秒內擊倒熔岩石魔王'},
-  2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'90 秒內擊倒熔爐巨龜同冰核巨猿'},
-  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'穿過電網缺口，聽到喪鐘就避開王招，再瞄準外露核心反擊'},
+  1:{seconds:60,summons:1,stats:enemyStats,boss:'熔岩石魔王',victory:'霓虹街守住喇！',objective:'側移避開鎖定彈，60 秒內擊倒熔岩石魔王'},
+  2:{seconds:90,summons:2,stats:reactorStats,boss:'熔爐巨龜',victory:'能源站奪回喇！',objective:'穿過三叉彈嘅空隙，90 秒內擊倒熔爐巨龜同冰核巨猿'},
+  3:{seconds:80,summons:1,stats:[reactorStats[0],reactorStats[1],{...reactorStats[2],hp:1280}],boss:'空殼喪鐘',victory:'風暴天橋突破喇！',objective:'避開雙線夾擊，穿過電網缺口，趁喪鐘核心外露反擊'},
   4:{seconds:90,summons:1,stats:desertStats,boss:'曜核蠍皇',victory:'沙漠風暴平息喇！',objective:'沙塵暴警報一響就準備迎風走位，蠍皇雙鉗落下前走入青色沙道'}
 };
 const missionArt = {
@@ -411,7 +411,7 @@ function start() {
     weaponLevel:loadout.checked ? progress.levels[selected] : 0, cleanDodge:false, stage, stats:level.stats, bosses:[], running:true, paused:false, time:0, score:0, wave:1, spawn:2.25, formation:0,
     lineTime:0, cutin:0, ultimateResult:null, explosion:0, coins:[], balance:0, earned:0, lootTime:0, chain:0, chainTime:0, bestChain:0, breachFlash:0,
     pickups:[], nextPickup:stage>=2 ? 5+Math.random()*4 : Infinity, pickupNoticeUntil:0, storedCharge:0, specialWeapon:null, specialUntil:0,
-    scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonsLeft:level.summons, allyCutin:false, queuedUltimate:false, wind:stage===4 ? makeDesertWind() : null, gate:null, gateIndex:0, nextGate:5, bullets:[], enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
+    scenery:{x:0,y:0,marks:[],distance:0,dx:0,dy:0,foot:1}, friend:null, summonsLeft:level.summons, allyCutin:false, queuedUltimate:false, wind:stage===4 ? makeDesertWind() : null, gate:null, gateIndex:0, nextGate:5, bullets:[], hostileBolts:[], nextVolley:2.8, enemies:[], particles:[], casts:[], impacts:[], muzzle:0, shake:0, ending:0, won:false,
     hero:{actor:selected,x:width/2,y:552,hp:100,attack:0,skill:0,guard:0,hurt:0,face:1,moving:false,stride:0,footDistance:0,aim:0}
   };
   charge = 0;
@@ -593,10 +593,10 @@ function impact(x,y,radius,color,duration,points=0) {
   game.impacts.push({x,y,radius,color,points,life:duration,max:duration});
   if (game.impacts.length>32) game.impacts.shift();
 }
-function hit(enemy,damage,special=false) {
+function hit(enemy,damage,special=false,damageCap=Infinity) {
   if (enemy.hp<=0 || enemy.escaped) return;
   const armor = enemy.type!==2 ? 1 : enemy.exposed>0 ? (special ? 2.4 : 1.55) : .55;
-  enemy.hp -= damage*armor*(1+.25*game.weaponLevel);
+  enemy.hp -= Math.min(damageCap,damage*armor*(1+.25*game.weaponLevel));
   enemy.flash = .19;
   const killed = enemy.hp<=0;
   if (killed) battleAudio.play(enemy.type===2 ? 'boss-down' : 'kill',enemy.type===2 ? .78 : .45,.10);
@@ -707,7 +707,7 @@ function ultimate() {
   if (game.allyCutin) { game.queuedUltimate=true; return; }
   game.cutin = cutinDuration;
   battleCry(game.hero.actor);
-  game.hero.skill = 7;
+  game.hero.skill = game.stage<=3 ? 11 : 7;
   hud();
 }
 function unleash() {
@@ -720,13 +720,16 @@ function unleash() {
   const actor=hero.actor;
   if (actor===1) hero.guard=3.5;
   const hits=[];
+  game.hostileBolts.length=0;
   for (const enemy of game.enemies) {
     const radius=enemySize(enemy)/2;
     if (enemy.hp<=0 || enemy.escaped || enemy.y+radius<0 || enemy.y-radius>height ||
         enemy.x+radius<0 || enemy.x-radius>width) continue;
     const before=enemy.hp;
     // One impact per enemy. Boss armour, exposed cores, upgrades and loot use normal combat rules.
-    hit(enemy,enemy.type===2 ? [200,185,220][actor] : before,true);
+    const boss=enemy.type===2;
+    const cap=boss && game.stage<=3 ? game.stats[2].hp*(enemy.exposed>0 ? .20 : .05) : Infinity;
+    hit(enemy,boss ? [200,185,220][actor] : before,true,cap);
     hits.push({x:enemy.x,y:enemy.y,ko:enemy.hp<=0,boss:enemy.type===2,
       damage:Math.ceil(before)-Math.ceil(Math.max(0,enemy.hp))});
   }
@@ -949,11 +952,11 @@ function step(dt) {
         enemy.patrol=(enemy.patrol||0)+dt;
         enemy.x=enemy.track+105*Math.sin(enemy.patrol*1.7);
       }
-    } else {
+    } else if (!enemy.aimedShot) {
       enemy.y+=config.speed*dt;
       enemy.x=enemy.track+Math.sin(game.time*(enemy.type===1?4:2)+enemy.phase)*(enemy.type===1?25:12);
     }
-    if (enemy.type===1 && enemy.phase<3 && enemy.y>265) {
+    if (!enemy.aimedShot && enemy.type===1 && enemy.phase<3 && enemy.y>265) {
       if (enemy.dashTime===undefined) {
         enemy.dashTime=0;
         enemy.dashFrom=enemy.x;
@@ -1009,8 +1012,10 @@ function step(dt) {
   for (const cast of game.casts) cast.life -= dt;
   game.casts = game.casts.filter(cast=>cast.life>0);
   const won = game.bosses.length>0 && game.bosses.every(b=>b.hp<=0);
+  if (!won && hero.hp>0) stepEnemyFire(dt);
   if (won || hero.hp<=0 || game.time>=stages[game.stage].seconds) {
     game.friend=null;
+    game.hostileBolts.length=0;
     game.gate=null;
     game.wind=null;
     game.pickups=[];
@@ -1472,6 +1477,7 @@ function draw() {
     ctx.drawImage(item.sprite,x-26,hoverY-26,52,52);
     ctx.restore();
   }
+  drawEnemyFire();
   if (game.fall) {
     drawFall(hero);
     ctx.restore();
