@@ -463,7 +463,8 @@ function hud() {
     const charging = bosses.some(b => b.hp > 0 && b.hazard?.windup > 0);
     const exposed = bosses.some(b => b.hp > 0 && b.exposed > 0);
     const pincers = charging && bosses.some(b=>b.hp>0 && b.hazard?.safeHalf && b.hazard.windup>0);
-    const signal = pincers ? '雙鉗合擊・入青色沙道' : charging ? '儲氣中・避開攻擊範圍' : exposed ? '核心外露・反擊' : '';
+    const casting=bosses.find(b=>b.hp>0 && b.hazard?.signature && b.hazard.windup>0);
+    const signal = casting ? signatures[casting.hazard.signature.id].cue : pincers ? '雙鉗合擊・入青色沙道' : charging ? '儲氣中・避開攻擊範圍' : exposed ? '核心外露・反擊' : '';
     if (bossSignal.textContent !== signal) bossSignal.textContent = signal;
     ui.boss.classList.toggle('charging',charging);
     ui.boss.classList.toggle('exposed',exposed && !charging);
@@ -603,7 +604,7 @@ function impact(x,y,radius,color,duration,points=0) {
 }
 function hit(enemy,damage,special=false,damageCap=Infinity) {
   if (enemy.hp<=0 || enemy.escaped) return;
-  const armor = enemy.type!==2 ? 1 : enemy.exposed>0 ? (special ? 2.4 : 1.55) : .55;
+  const armor = enemy.type!==2 ? 1 : enemy.y<bossStationY ? .22 : enemy.exposed>0 ? (special ? 2.4 : 1.55) : .55;
   enemy.hp -= Math.min(damageCap,damage*armor*(1+.25*game.weaponLevel));
   enemy.flash = .19;
   const killed = enemy.hp<=0;
@@ -797,16 +798,21 @@ function stepBossAttack(boss,dt) {
   if (!boss.hazard) {
     boss.delay -= dt;
     if (boss.delay>0) return;
+    const signatureTurn=(boss.castCount ?? 0)%3===0;
+    boss.castCount=(boss.castCount ?? 0)+1;
     const lane = game.stage===2 ? boss.variant===0 : boss.turn++ % 2 === 0;
     const points = lane ? [hero.x] : [hero.x,clamp(hero.x+(hero.x<width/2 ? 108 : -108),42,width-42)];
     const pincers = game.stage===4 && !lane;
-    const duration = pincers ? 1.7 : game.stage===3 ? 1.15 : lane ? 1.65 : 1.85;
+    const duration = signatureTurn ? 1.55 : pincers ? 1.7 : game.stage===3 ? 1.15 : lane ? 1.65 : 1.85;
     const originY = boss.y+22;
     const angle = Math.atan2(hero.x-boss.x,hero.y-12-originY);
     battleAudio.play(game.stage===3 ? 'warden-toll' : 'warning',.62,.35);
     boss.hazard = {lane,points,y:hero.y-12,originY,angle,
       length:(breachLine-originY)/Math.cos(angle),duration,windup:duration,flare:.34};
-    if (pincers) {
+    if (signatureTurn) {
+      boss.hazard.signature=makeSignature(game.stage,boss,hero);
+      boss.hazard.flare=.72;
+    } else if (pincers) {
       boss.hazard.safeHalf=47;
       boss.hazard.safeX=clamp(hero.x+(hero.x<width/2 ? 85 : -85),82,width-82);
     }
@@ -821,7 +827,7 @@ function stepBossAttack(boss,dt) {
     const dx=hero.x-boss.x, dy=hero.y-12-hazard.originY;
     const along=dx*Math.sin(hazard.angle)+dy*Math.cos(hazard.angle);
     const across=dx*Math.cos(hazard.angle)-dy*Math.sin(hazard.angle);
-    const caught=hazard.safeHalf ? Math.abs(hero.x-hazard.safeX)>hazard.safeHalf : hazard.lane
+    const caught=hazard.signature ? signatureHitContext.isPointInPath(hazard.signature.area,hero.x,hero.y-12) : hazard.safeHalf ? Math.abs(hero.x-hazard.safeX)>hazard.safeHalf : hazard.lane
       ? along>=0 && along<=hazard.length && Math.abs(across)<laneHalfWidth
       : hazard.points.some(x=>Math.hypot(hero.x-x,hero.y-12-hazard.y)<blastRadius);
     if (!caught) {
@@ -831,7 +837,7 @@ function stepBossAttack(boss,dt) {
     boss.exposed = game.stage>=3 ? (caught ? 0 : 2.15) : 1.6;
     if (caught && hero.guard<=0 && hero.hurt<=0) {
       battleAudio.play('hurt',.75,.12);
-      hero.hp -= hazard.lane ? 22 : 18;
+      hero.hp -= hazard.signature ? 29 : hazard.lane ? 22 : 18;
       hero.hurt = .7;
       burst(hero.x,hero.y-12,'#ff7048',18);
     }
@@ -946,7 +952,7 @@ function step(dt) {
   if (game.wave===3 && game.bosses.length===0) {
     const lanes = game.stage===2 ? [112,308] : [width/2];
     game.bosses = lanes.map((x,variant)=>Object.assign(spawn(2,x,game.stage===2 ? 52 : -66),
-      {variant,delay:1+variant*2,turn:0,hazard:null}));
+      {variant,delay:.15+variant*2,turn:0,hazard:null}));
   }
   for (const enemy of game.enemies) {
     if (enemy.hp <= 0) continue;
@@ -1192,6 +1198,7 @@ function drawChargeEffect(tile,x,y,size,angle,opacity) {
   ctx.restore();
 }
 function drawHazard(h,boss) {
+  if (h.signature) { drawSignature(h); return; }
   if (h.safeHalf) { drawPincerStrike(h); return; }
   const warning=h.windup>0;
   const power=warning ? 1-h.windup/h.duration : 1;
@@ -1272,13 +1279,14 @@ function drawBossCharge(boss) {
   const power=1-h.windup/h.duration, size=28+power*49;
   ctx.save();
   if (boss.variant===1) ctx.filter='hue-rotate(162deg)';
-  ctx.drawImage(bossFx[0],boss.x-size/2,h.originY-size/2,size,size);
+  if (h.signature) signatureSprite(h.signature.id,boss.x,h.originY,50+power*45);
+  else ctx.drawImage(bossFx[0],boss.x-size/2,h.originY-size/2,size,size);
   ctx.restore();
   ctx.save();
   const y=boss.y-enemySize(boss)*.53;
   ctx.fillStyle='#170e16e0';ctx.fillRect(boss.x-49,y-17,98,23);
   ctx.fillStyle='#ffcd7b';ctx.font='bold 12px system-ui';ctx.textAlign='center';
-  ctx.fillText(h.safeHalf ? '雙鉗 · 入青色沙道' : h.lane ? '儲氣 · 避開箭道' : '儲氣 · 離開光圈',boss.x,y-3);
+  ctx.fillText(h.signature ? signatures[h.signature.id].name : h.safeHalf ? '雙鉗 · 入青色沙道' : h.lane ? '儲氣 · 避開箭道' : '儲氣 · 離開光圈',boss.x,y-3);
   ctx.fillRect(boss.x-46,y+1,92*power,3);
   ctx.restore();
 }
@@ -1616,7 +1624,7 @@ function loop(now) {
   requestAnimationFrame(loop);
 }
 requestAnimationFrame(loop);
-Promise.all([street,reactor,skybridge,desertBackdrop,sandFogTexture,chargeFx,cutins,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
+Promise.all([street,reactor,skybridge,desertBackdrop,sandFogTexture,chargeFx,cutins,signatureSheet,...bossFx,...fallSprites.flat(),...sprites,...pickupTypes.map(item=>item.sprite)].map(sprite=>sprite.decode())).then(()=>{
   ui.start.disabled = false;
   ui.start.textContent = '開始打怪';
 }).catch(()=>{ui.start.textContent = '素材載入失敗，請重新整理';});
